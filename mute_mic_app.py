@@ -48,16 +48,19 @@ class MicMuteApp:
         self.toggle_button = ttk.Button(root, text="Toggle Mute", command=self.toggle_mute)
         self.toggle_button.grid(row=2, column=0, columnspan=2, pady=5)
         
+        self.minimize_button = ttk.Button(root, text="Minimize to Tray", command=self.hide_window)
+        self.minimize_button.grid(row=3, column=0, columnspan=2, pady=5)
+        
         self.hotkey_label = ttk.Label(root, text="Hotkey:")
-        self.hotkey_label.grid(row=3, column=0, sticky="e", padx=5, pady=5)
+        self.hotkey_label.grid(row=4, column=0, sticky="e", padx=5, pady=5)
         self.current_hotkey = None  # Initialize as None
         self.label_hotkey = ttk.Label(root, text="ctrl+alt+m")
-        self.label_hotkey.grid(row=3, column=1, sticky="w", padx=5)
+        self.label_hotkey.grid(row=4, column=1, sticky="w", padx=5)
         self.set_hotkey_button = ttk.Button(root, text="Set Hotkey", command=self.start_hotkey_capture)
-        self.set_hotkey_button.grid(row=4, column=0, columnspan=2, pady=5)
+        self.set_hotkey_button.grid(row=5, column=0, columnspan=2, pady=5)
         
         self.overlay_frame = ttk.LabelFrame(root, text="Overlay Settings", padding=5)
-        self.overlay_frame.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
+        self.overlay_frame.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
         
         self.position_label = ttk.Label(self.overlay_frame, text="Position")
         self.position_label.grid(row=0, column=0, sticky="e", padx=5, pady=2)
