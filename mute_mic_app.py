@@ -15,6 +15,8 @@ import os
 import pygame
 import platform
 import asyncio
+import sys
+import os.path
 
 class MicMuteApp:
     def __init__(self, root):
@@ -126,7 +128,7 @@ class MicMuteApp:
         
         # Set initial hotkey after GUI setup
         try:
-            self.current_hotkey = "ctrl+alt+m" 
+            self.current_hotkey = "ctrl+alt+m"
             keyboard.add_hotkey(self.current_hotkey, self.toggle_mute)
             print(f"Initial hotkey set: {self.current_hotkey}")
         except Exception as e:
@@ -136,6 +138,16 @@ class MicMuteApp:
         self.update_status()
         self.poll_mute_state()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def get_resource_path(self, relative_path):
+        """Get absolute path to resource, works for dev and PyInstaller"""
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except AttributeError:
+            # Running in development mode
+            base_path = os.path.abspath(os.path.dirname(__file__))
+        return os.path.join(base_path, relative_path)
     
     def initialize_audio_device(self):
         try:
@@ -157,7 +169,10 @@ class MicMuteApp:
             messagebox.showerror("Error", f"Failed to refresh audio device: {str(e)}")
     
     def load_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        config_path = self.get_resource_path("config.json")
+        default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
+        default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
+        
         try:
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
@@ -165,14 +180,22 @@ class MicMuteApp:
                     self.position_var.set(config.get("overlay_position", "Top Left"))
                     self.size_var.set(config.get("overlay_size", "32x32"))
                     self.margin_var.set(str(config.get("overlay_margin", 0)))
-                    self.mute_sound_var.set(config.get("mute_sound_file", ""))
-                    self.unmute_sound_var.set(config.get("unmute_sound_file", ""))
+                    self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
+                    self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
                     print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+            else:
+                # Set defaults if no config exists
+                self.mute_sound_var.set(default_mute_sound)
+                self.unmute_sound_var.set(default_unmute_sound)
+                self.save_config()
         except Exception as e:
             print(f"Error loading config: {str(e)}")
+            self.mute_sound_var.set(default_mute_sound)
+            self.unmute_sound_var.set(default_unmute_sound)
+            self.save_config()
     
     def save_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        config_path = self.get_resource_path("config.json")
         try:
             config = {
                 "overlay_position": self.position_var.get(),
