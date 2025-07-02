@@ -23,7 +23,7 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
 ## Installation (Development)
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/mic-mute-control.git
+   git clone https://github.com/nabilhasan01/mic-mute-control.git
    cd mic-mute-control
    ```
 2. Install dependencies:
