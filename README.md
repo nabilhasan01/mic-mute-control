@@ -1,5 +1,3 @@
-
-
 # Microphone Mute Control
 
 A lightweight Windows application to toggle microphone mute status with a hotkey, displaying a 48x48 red microphone icon (with white slash) in the top-middle of the screen when muted. Features a system tray icon, GUI for hotkey and overlay customization, and external mute detection.
@@ -18,7 +16,7 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
 ## Requirements
 - Windows 10/11 (64-bit).
 - Python 3.11+ (for development; not needed for the `.exe`).
-- `libcairo-2.dll` (included in the `.exe` or via GTK+ for development).
+- `libcairo-2.dll` (included in the `resource` folder for development or bundled with the `.exe`).
 
 ## Installation (Development)
 1. Clone the repository:
@@ -30,11 +28,11 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
    ```bash
    pip install pycaw comtypes psutil pywin32 keyboard pystray Pillow pyinstaller cairosvg cairocffi
    ```
-3. Place `libcairo-2.dll` in the project directory (`mic-mute-control`):
+3. Ensure `libcairo-2.dll` is in the `resource` folder:
    - Download from [GTK+ for Windows](https://github.com/tschoonj/gtkmm-winbuild/releases) (`bin/libcairo-2.dll`).
-   - Or copy from `C:\Program Files\GTK3-Runtime Win64\bin`.
+   - Or copy from `C:\Program Files\GTK3-Runtime Win64\bin` to `resource\libcairo-2.dll`.
    ```bash
-   copy "C:\Program Files\GTK3-Runtime Win64\bin\libcairo-2.dll" .
+   copy "C:\Program Files\GTK3-Runtime Win64\bin\libcairo-2.dll" resource\
    ```
 
 ## Usage
@@ -60,11 +58,11 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
 To create a standalone `.exe`:
 1. Run `PyInstaller`:
    ```bash
-   pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --add-binary "libcairo-2.dll;." mute_mic_app.py
+   pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --add-binary "resource\libcairo-2.dll;resource" mute_mic_app.py
    ```
    - If `comtypes.gen` is needed (check for `pycaw` errors):
      ```bash
-     pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --add-binary "libcairo-2.dll;." --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen" mute_mic_app.py
+     pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --add-binary "resource\libcairo-2.dll;resource" --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen" mute_mic_app.py
      ```
 2. Find `mute_mic_app.exe` in the `dist` folder.
 3. Share the `.exe` (run as administrator on other PCs).
@@ -73,10 +71,10 @@ To create a standalone `.exe`:
 - **`.exe` Fails**:
   - Run as administrator.
   - Ensure the microphone is the default recording device (Windows Sound settings).
-  - Verify `libcairo-2.dll` is in the `.exe` folder.
+  - Verify `libcairo-2.dll` is in the `resource` folder for development or bundled with the `.exe`.
 - **Icon Issues**:
   - Check console for "SVG converted to PNG, mode: RGBA".
-  - Ensure `libcairo-2.dll` is present.
+  - Ensure `libcairo-2.dll` is in the `resource` folder.
   - If vector icon fails, a fallback RGBA icon is used.
 - **Hotkey Issues**:
   - Run as administrator for special keys (e.g., `Pause`).
