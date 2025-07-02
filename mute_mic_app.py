@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, filedialog
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from comtypes import CLSCTX_ALL
 from ctypes import cast, POINTER
@@ -12,12 +12,15 @@ import io
 import cairosvg
 import json
 import os
+import pygame
+import platform
+import asyncio
 
 class MicMuteApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Microphone Mute Control")
-        self.root.geometry("244x350")  # Increased height to accommodate overlay settings
+        self.root.geometry("378x525")  # Increased height for additional sound settings
         self.root.resizable(False, True)
         self.root.configure(bg="#f0f0f0")
         
@@ -84,6 +87,28 @@ class MicMuteApp:
         self.margin_button = ttk.Button(self.overlay_frame, text="Set", command=self.update_margin)
         self.margin_button.grid(row=2, column=1, sticky="w", padx=(50, 5), pady=2)
         
+        self.sound_frame = ttk.LabelFrame(root, text="Sound Settings", padding=5)
+        self.sound_frame.grid(row=7, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
+        
+        self.mute_sound_label = ttk.Label(self.sound_frame, text="Mute Sound:")
+        self.mute_sound_label.grid(row=0, column=0, sticky="e", padx=5, pady=2)
+        self.mute_sound_var = tk.StringVar(value="")
+        self.mute_sound_entry = ttk.Entry(self.sound_frame, textvariable=self.mute_sound_var, width=20)
+        self.mute_sound_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+        self.mute_browse_button = ttk.Button(self.sound_frame, text="Browse", command=self.browse_mute_sound)
+        self.mute_browse_button.grid(row=0, column=2, padx=5, pady=2)
+        
+        self.unmute_sound_label = ttk.Label(self.sound_frame, text="Unmute Sound:")
+        self.unmute_sound_label.grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        self.unmute_sound_var = tk.StringVar(value="")
+        self.unmute_sound_entry = ttk.Entry(self.sound_frame, textvariable=self.unmute_sound_var, width=20)
+        self.unmute_sound_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        self.unmute_browse_button = ttk.Button(self.sound_frame, text="Browse", command=self.browse_unmute_sound)
+        self.unmute_browse_button.grid(row=1, column=2, padx=5, pady=2)
+        
+        self.apply_sound_button = ttk.Button(self.sound_frame, text="Apply", command=self.apply_sounds)
+        self.apply_sound_button.grid(row=2, column=1, columnspan=2, pady=5)
+        
         self.load_config()
         self.is_capturing_hotkey = False
         
@@ -93,9 +118,15 @@ class MicMuteApp:
         self.overlay = None
         self.create_overlay()
         
+        # Initialize pygame for sound
+        pygame.mixer.init()
+        self.mute_sound = None
+        self.unmute_sound = None
+        self.last_mute_state = None  # Track last mute state for sound playback
+        
         # Set initial hotkey after GUI setup
         try:
-            self.current_hotkey = "ctrl+alt+m"
+            self.current_hotkey = "ctrl+alt+m" 
             keyboard.add_hotkey(self.current_hotkey, self.toggle_mute)
             print(f"Initial hotkey set: {self.current_hotkey}")
         except Exception as e:
@@ -134,7 +165,9 @@ class MicMuteApp:
                     self.position_var.set(config.get("overlay_position", "Top Left"))
                     self.size_var.set(config.get("overlay_size", "32x32"))
                     self.margin_var.set(str(config.get("overlay_margin", 0)))
-                    print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}")
+                    self.mute_sound_var.set(config.get("mute_sound_file", ""))
+                    self.unmute_sound_var.set(config.get("unmute_sound_file", ""))
+                    print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
         except Exception as e:
             print(f"Error loading config: {str(e)}")
     
@@ -144,11 +177,13 @@ class MicMuteApp:
             config = {
                 "overlay_position": self.position_var.get(),
                 "overlay_size": self.size_var.get(),
-                "overlay_margin": int(self.margin_var.get())
+                "overlay_margin": int(self.margin_var.get()),
+                "mute_sound_file": self.mute_sound_var.get(),
+                "unmute_sound_file": self.unmute_sound_var.get()
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f)
-            print(f"Saved config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}")
+            print(f"Saved config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
     
@@ -249,7 +284,7 @@ class MicMuteApp:
             if was_muted:
                 self.overlay_label.config(image=self.muted_overlay_icon)
                 self.overlay.deiconify()
-            self.save_config()  # Fixed typo from self.save_dist() to self.save_config()
+            self.save_config()
         except Exception as e:
             print(f"Error updating overlay size: {str(e)}")
             messagebox.showerror("Error", f"Failed to update size: {str(e)}")
@@ -342,6 +377,73 @@ class MicMuteApp:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to toggle mute: {str(e)}")
     
+    def play_sound(self, is_muted):
+        sound = self.mute_sound if is_muted else self.unmute_sound
+        sound_path = self.mute_sound_var.get().strip() if is_muted else self.unmute_sound_var.get().strip()
+        
+        # Load sound only if not already loaded
+        if sound is None and sound_path and os.path.exists(sound_path):
+            try:
+                sound = pygame.mixer.Sound(sound_path)
+                if is_muted:
+                    self.mute_sound = sound
+                    print(f"Mute sound loaded for playback from: {sound_path}")
+                else:
+                    self.unmute_sound = sound
+                    print(f"Unmute sound loaded for playback from: {sound_path}")
+            except Exception as e:
+                print(f"Error loading {'mute' if is_muted else 'unmute'} sound for playback: {str(e)}")
+                sound = None
+        
+        if sound:
+            try:
+                pygame.mixer.Sound.play(sound)
+            except Exception as e:
+                print(f"Error playing {'mute' if is_muted else 'unmute'} sound: {str(e)}")
+                if is_muted:
+                    self.mute_sound = None
+                else:
+                    self.unmute_sound = None
+        
+        if not sound:
+            # Fallback to default beep sound
+            pygame.mixer.Sound.play(pygame.mixer.Sound(buffer=pygame.sndarray.make_sound([[0] * 44100] * 2)))  # Simple beep
+            print(f"No valid {'mute' if is_muted else 'unmute'} sound, using default beep")
+
+    def browse_mute_sound(self):
+        file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
+        if file_path:
+            self.mute_sound_var.set(file_path)
+
+    def browse_unmute_sound(self):
+        file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
+        if file_path:
+            self.unmute_sound_var.set(file_path)
+
+    def apply_sounds(self):
+        self.mute_sound = None
+        self.unmute_sound = None
+        mute_sound_path = self.mute_sound_var.get().strip()
+        unmute_sound_path = self.unmute_sound_var.get().strip()
+        
+        if mute_sound_path and os.path.exists(mute_sound_path):
+            try:
+                self.mute_sound = pygame.mixer.Sound(mute_sound_path)
+                print(f"Mute sound loaded from: {mute_sound_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load mute sound file: {str(e)}")
+                self.mute_sound = None
+        
+        if unmute_sound_path and os.path.exists(unmute_sound_path):
+            try:
+                self.unmute_sound = pygame.mixer.Sound(unmute_sound_path)
+                print(f"Unmute sound loaded from: {unmute_sound_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load unmute sound file: {str(e)}")
+                self.unmute_sound = None
+        
+        self.save_config()
+
     def update_status(self):
         if self.volume:
             try:
@@ -360,6 +462,10 @@ class MicMuteApp:
                     else:
                         self.overlay.withdraw()
                         print(f"Overlay hidden: {status}")
+                # Play sound on state change
+                if hasattr(self, 'last_mute_state') and mute_state != self.last_mute_state:
+                    self.play_sound(mute_state)
+                self.last_mute_state = mute_state
             except Exception as e:
                 self.label.config(text="Status: Error")
                 messagebox.showerror("Error", f"Failed to get mute status: {str(e)}")
@@ -383,6 +489,7 @@ class MicMuteApp:
             self.icon.stop()
         if self.overlay:
             self.overlay.destroy()
+        pygame.mixer.quit()
         pythoncom.CoUninitialize()
         self.root.destroy()
     
@@ -396,6 +503,7 @@ class MicMuteApp:
             self.icon.stop()
         if self.overlay:
             self.overlay.destroy()
+        pygame.mixer.quit()
         pythoncom.CoUninitialize()
 
 def main():
