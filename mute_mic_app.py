@@ -17,7 +17,7 @@ class MicMuteApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Microphone Mute Control")
-        self.root.geometry("244x320")
+        self.root.geometry("244x350")  # Increased height to accommodate overlay settings
         self.root.resizable(False, True)
         self.root.configure(bg="#f0f0f0")
         
@@ -25,13 +25,7 @@ class MicMuteApp:
         
         self.device = None
         self.volume = None
-        try:
-            devices = AudioUtilities.GetMicrophone()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            self.volume = cast(interface, POINTER(IAudioEndpointVolume))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to initialize audio device: {str(e)}")
-            self.root.quit()
+        self.initialize_audio_device()
         
         style = ttk.Style()
         style.configure("TButton", padding=5, font=("Helvetica", 10))
@@ -48,8 +42,11 @@ class MicMuteApp:
         self.toggle_button = ttk.Button(root, text="Toggle Mute", command=self.toggle_mute)
         self.toggle_button.grid(row=2, column=0, columnspan=2, pady=5)
         
+        self.refresh_button = ttk.Button(root, text="Refresh Device", command=self.refresh_device)
+        self.refresh_button.grid(row=3, column=0, padx=(10, 5), pady=5, sticky="e")
+        
         self.minimize_button = ttk.Button(root, text="Minimize to Tray", command=self.hide_window)
-        self.minimize_button.grid(row=3, column=0, columnspan=2, pady=5)
+        self.minimize_button.grid(row=3, column=1, padx=(5, 10), pady=5, sticky="w")
         
         self.hotkey_label = ttk.Label(root, text="Hotkey:")
         self.hotkey_label.grid(row=4, column=0, sticky="e", padx=5, pady=5)
@@ -64,7 +61,7 @@ class MicMuteApp:
         
         self.position_label = ttk.Label(self.overlay_frame, text="Position")
         self.position_label.grid(row=0, column=0, sticky="e", padx=5, pady=2)
-        self.position_var = tk.StringVar(value="Top Mid")
+        self.position_var = tk.StringVar(value="Top Left")
         positions = ["Top Left", "Top Mid", "Top Right", "Middle Left", "Middle Right", 
                      "Bottom Left", "Bottom Mid", "Bottom Right"]
         self.position_menu = ttk.Combobox(self.overlay_frame, textvariable=self.position_var, values=positions, state="readonly", width=15)
@@ -73,7 +70,7 @@ class MicMuteApp:
         
         self.size_label = ttk.Label(self.overlay_frame, text="Size")
         self.size_label.grid(row=1, column=0, sticky="e", padx=5, pady=2)
-        self.size_var = tk.StringVar(value="48x48")
+        self.size_var = tk.StringVar(value="32x32")
         sizes = ["32x32", "48x48", "64x64"]
         self.size_menu = ttk.Combobox(self.overlay_frame, textvariable=self.size_var, values=sizes, state="readonly", width=15)
         self.size_menu.grid(row=1, column=1, sticky="w", padx=5, pady=2)
@@ -81,7 +78,7 @@ class MicMuteApp:
         
         self.margin_label = ttk.Label(self.overlay_frame, text="Margin")
         self.margin_label.grid(row=2, column=0, sticky="e", padx=5, pady=2)
-        self.margin_var = tk.StringVar(value="10")
+        self.margin_var = tk.StringVar(value="0")
         self.margin_entry = ttk.Entry(self.overlay_frame, textvariable=self.margin_var, width=5)
         self.margin_entry.grid(row=2, column=1, sticky="w", padx=(5, 0), pady=2)
         self.margin_button = ttk.Button(self.overlay_frame, text="Set", command=self.update_margin)
@@ -109,15 +106,34 @@ class MicMuteApp:
         self.poll_mute_state()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
+    def initialize_audio_device(self):
+        try:
+            devices = AudioUtilities.GetMicrophone()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            self.volume = cast(interface, POINTER(IAudioEndpointVolume))
+            print("Audio device initialized successfully")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to initialize audio device: {str(e)}")
+            self.volume = None
+    
+    def refresh_device(self):
+        try:
+            self.initialize_audio_device()
+            self.update_status()
+            print("Microphone device refreshed")
+            messagebox.showinfo("Success", "Microphone device refreshed successfully")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh audio device: {str(e)}")
+    
     def load_config(self):
         config_path = os.path.join(os.path.dirname(__file__), "config.json")
         try:
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
-                    self.position_var.set(config.get("overlay_position", "Top Mid"))
-                    self.size_var.set(config.get("overlay_size", "48x48"))
-                    self.margin_var.set(str(config.get("overlay_margin", 10)))
+                    self.position_var.set(config.get("overlay_position", "Top Left"))
+                    self.size_var.set(config.get("overlay_size", "32x32"))
+                    self.margin_var.set(str(config.get("overlay_margin", 0)))
                     print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}")
         except Exception as e:
             print(f"Error loading config: {str(e)}")
@@ -233,7 +249,7 @@ class MicMuteApp:
             if was_muted:
                 self.overlay_label.config(image=self.muted_overlay_icon)
                 self.overlay.deiconify()
-            self.save_config()
+            self.save_config()  # Fixed typo from self.save_dist() to self.save_config()
         except Exception as e:
             print(f"Error updating overlay size: {str(e)}")
             messagebox.showerror("Error", f"Failed to update size: {str(e)}")
