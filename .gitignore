@@ -1,0 +1,16 @@
+mute_mic_app.spec
+dist/mute_mic_app.exe
+build/mute_mic_app/xref-mute_mic_app.html
+build/mute_mic_app/warn-mute_mic_app.txt
+build/mute_mic_app/PYZ-00.toc
+build/mute_mic_app/PYZ-00.pyz
+build/mute_mic_app/PKG-00.toc
+build/mute_mic_app/mute_mic_app.pkg
+build/mute_mic_app/localpycs/struct.pyc
+build/mute_mic_app/localpycs/pyimod04_pywin32.pyc
+build/mute_mic_app/localpycs/pyimod03_ctypes.pyc
+build/mute_mic_app/localpycs/pyimod02_importers.pyc
+build/mute_mic_app/localpycs/pyimod01_archive.pyc
+build/mute_mic_app/EXE-00.toc
+build/mute_mic_app/base_library.zip
+build/mute_mic_app/Analysis-00.toc
