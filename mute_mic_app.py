@@ -13,8 +13,6 @@ import cairosvg
 import json
 import os
 import pygame
-import platform
-import asyncio
 import sys
 import os.path
 
@@ -22,9 +20,9 @@ class MicMuteApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Microphone Mute Control")
-        self.root.geometry("378x525")  # Increased height for additional sound settings
-        self.root.resizable(False, True)
-        self.root.configure(bg="#f0f0f0")
+        self.root.geometry("410x750")
+        self.root.resizable(False, False)
+        self.root.configure(bg="#ffffff")
         
         pythoncom.CoInitialize()
         
@@ -32,84 +30,111 @@ class MicMuteApp:
         self.volume = None
         self.initialize_audio_device()
         
+        # Configure modern ttk style
         style = ttk.Style()
-        style.configure("TButton", padding=5, font=("Helvetica", 10))
-        style.configure("TLabel", background="#f0f0f0", font=("Helvetica", 10))
-        style.configure("TFrame", background="#f0f0f0")
-        style.configure("TCombobox", font=("Helvetica", 10))
+        style.theme_use('clam')
+        style.configure("TButton", padding=8, font=("Helvetica", 10), background="#4CAF50", foreground="white")
+        style.map("TButton", background=[('active', '#45a049')])
+        style.configure("TLabel", background="#ffffff", font=("Helvetica", 10))
+        style.configure("TFrame", background="#ffffff")
+        style.configure("TCombobox", font=("Helvetica", 10), padding=5)
+        style.configure("TEntry", padding=5)
         
-        self.title_label = ttk.Label(root, text="Microphone Control", font=("Helvetica", 12, "bold"))
-        self.title_label.grid(row=0, column=0, columnspan=2, pady=10)
+        # Main container
+        main_frame = ttk.Frame(self.root, padding=15)
+        main_frame.grid(row=0, column=0, sticky="nsew")
         
-        self.label = ttk.Label(root, text="Status: Unknown")
+        # Title
+        self.title_label = ttk.Label(main_frame, text="Microphone Mute Control", font=("Helvetica", 14, "bold"))
+        self.title_label.grid(row=0, column=0, columnspan=2, pady=(0, 15))
+        
+        # Status
+        self.label = ttk.Label(main_frame, text="Status: Unknown")
         self.label.grid(row=1, column=0, columnspan=2, pady=5)
         
-        self.toggle_button = ttk.Button(root, text="Toggle Mute", command=self.toggle_mute)
-        self.toggle_button.grid(row=2, column=0, columnspan=2, pady=5)
+        # Toggle and Minimize buttons
+        self.toggle_button = ttk.Button(main_frame, text="Toggle Mute", command=self.toggle_mute)
+        self.toggle_button.grid(row=2, column=0, columnspan=2, pady=10, sticky="ew")
         
-        self.refresh_button = ttk.Button(root, text="Refresh Device", command=self.refresh_device)
-        self.refresh_button.grid(row=3, column=0, padx=(10, 5), pady=5, sticky="e")
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, columnspan=2, pady=5)
+        self.refresh_button = ttk.Button(button_frame, text="Refresh Device", command=self.refresh_device)
+        self.refresh_button.grid(row=0, column=0, padx=(0, 5), sticky="e")
+        self.minimize_button = ttk.Button(button_frame, text="Minimize to Tray", command=self.hide_window)
+        self.minimize_button.grid(row=0, column=1, padx=(5, 0), sticky="w")
         
-        self.minimize_button = ttk.Button(root, text="Minimize to Tray", command=self.hide_window)
-        self.minimize_button.grid(row=3, column=1, padx=(5, 10), pady=5, sticky="w")
+        # Hotkey settings
+        hotkey_frame = ttk.LabelFrame(main_frame, text="Hotkey Settings", padding=10)
+        hotkey_frame.grid(row=4, column=0, columnspan=2, sticky="nsew", pady=10)
         
-        self.hotkey_label = ttk.Label(root, text="Hotkey:")
-        self.hotkey_label.grid(row=4, column=0, sticky="e", padx=5, pady=5)
-        self.current_hotkey = None  # Initialize as None
-        self.label_hotkey = ttk.Label(root, text="ctrl+alt+m")
-        self.label_hotkey.grid(row=4, column=1, sticky="w", padx=5)
-        self.set_hotkey_button = ttk.Button(root, text="Set Hotkey", command=self.start_hotkey_capture)
-        self.set_hotkey_button.grid(row=5, column=0, columnspan=2, pady=5)
+        self.hotkey_label = ttk.Label(hotkey_frame, text="Hotkey:")
+        self.hotkey_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        self.current_hotkey = None
+        self.label_hotkey = ttk.Label(hotkey_frame, text="ctrl+alt+m")
+        self.label_hotkey.grid(row=0, column=1, sticky="w", padx=5)
+        self.set_hotkey_button = ttk.Button(hotkey_frame, text="Set Hotkey", command=self.start_hotkey_capture)
+        self.set_hotkey_button.grid(row=1, column=0, columnspan=2, pady=5)
         
-        self.overlay_frame = ttk.LabelFrame(root, text="Overlay Settings", padding=5)
-        self.overlay_frame.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
+        # Overlay settings
+        self.overlay_frame = ttk.LabelFrame(main_frame, text="Overlay Settings", padding=10)
+        self.overlay_frame.grid(row=5, column=0, columnspan=2, sticky="nsew", pady=10)
         
         self.position_label = ttk.Label(self.overlay_frame, text="Position")
-        self.position_label.grid(row=0, column=0, sticky="e", padx=5, pady=2)
-        self.position_var = tk.StringVar(value="Top Left")
+        self.position_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        self.position_var = tk.StringVar(value="Top Mid")
         positions = ["Top Left", "Top Mid", "Top Right", "Middle Left", "Middle Right", 
                      "Bottom Left", "Bottom Mid", "Bottom Right"]
         self.position_menu = ttk.Combobox(self.overlay_frame, textvariable=self.position_var, values=positions, state="readonly", width=15)
-        self.position_menu.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+        self.position_menu.grid(row=0, column=1, sticky="w", padx=5, pady=5)
         self.position_menu.bind("<<ComboboxSelected>>", lambda e: self.update_overlay_position(self.position_var.get()))
         
         self.size_label = ttk.Label(self.overlay_frame, text="Size")
-        self.size_label.grid(row=1, column=0, sticky="e", padx=5, pady=2)
-        self.size_var = tk.StringVar(value="32x32")
+        self.size_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        self.size_var = tk.StringVar(value="48x48")
         sizes = ["32x32", "48x48", "64x64"]
         self.size_menu = ttk.Combobox(self.overlay_frame, textvariable=self.size_var, values=sizes, state="readonly", width=15)
-        self.size_menu.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        self.size_menu.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         self.size_menu.bind("<<ComboboxSelected>>", lambda e: self.update_overlay_size(self.size_var.get()))
         
         self.margin_label = ttk.Label(self.overlay_frame, text="Margin")
-        self.margin_label.grid(row=2, column=0, sticky="e", padx=5, pady=2)
-        self.margin_var = tk.StringVar(value="0")
+        self.margin_label.grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        self.margin_var = tk.StringVar(value="10")
         self.margin_entry = ttk.Entry(self.overlay_frame, textvariable=self.margin_var, width=5)
-        self.margin_entry.grid(row=2, column=1, sticky="w", padx=(5, 0), pady=2)
+        self.margin_entry.grid(row=2, column=1, sticky="w", padx=(5, 0), pady=5)
         self.margin_button = ttk.Button(self.overlay_frame, text="Set", command=self.update_margin)
-        self.margin_button.grid(row=2, column=1, sticky="w", padx=(50, 5), pady=2)
+        self.margin_button.grid(row=2, column=1, sticky="w", padx=(50, 5), pady=5)
         
-        self.sound_frame = ttk.LabelFrame(root, text="Sound Settings", padding=5)
-        self.sound_frame.grid(row=7, column=0, columnspan=2, sticky="nsew", padx=10, pady=5)
+        self.opacity_label = ttk.Label(self.overlay_frame, text="Opacity")
+        self.opacity_label.grid(row=3, column=0, sticky="e", padx=5, pady=5)
+        self.opacity_var = tk.DoubleVar(value=0.7)
+        self.opacity_scale = ttk.Scale(self.overlay_frame, from_=0.1, to=1.0, orient="horizontal", variable=self.opacity_var, command=self.update_opacity)
+        self.opacity_scale.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
+        self.opacity_value_label = ttk.Label(self.overlay_frame, text="0.7")
+        self.opacity_value_label.grid(row=3, column=2, sticky="w", padx=5)
+        
+        # Sound settings
+        self.sound_frame = ttk.LabelFrame(main_frame, text="Sound Settings", padding=10)
+        self.sound_frame.grid(row=6, column=0, columnspan=2, sticky="nsew", pady=10)
         
         self.mute_sound_label = ttk.Label(self.sound_frame, text="Mute Sound:")
-        self.mute_sound_label.grid(row=0, column=0, sticky="e", padx=5, pady=2)
+        self.mute_sound_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
         self.mute_sound_var = tk.StringVar(value="")
         self.mute_sound_entry = ttk.Entry(self.sound_frame, textvariable=self.mute_sound_var, width=20)
-        self.mute_sound_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+        self.mute_sound_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
         self.mute_browse_button = ttk.Button(self.sound_frame, text="Browse", command=self.browse_mute_sound)
-        self.mute_browse_button.grid(row=0, column=2, padx=5, pady=2)
+        self.mute_browse_button.grid(row=0, column=2, padx=5, pady=5)
         
         self.unmute_sound_label = ttk.Label(self.sound_frame, text="Unmute Sound:")
-        self.unmute_sound_label.grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        self.unmute_sound_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
         self.unmute_sound_var = tk.StringVar(value="")
         self.unmute_sound_entry = ttk.Entry(self.sound_frame, textvariable=self.unmute_sound_var, width=20)
-        self.unmute_sound_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        self.unmute_sound_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         self.unmute_browse_button = ttk.Button(self.sound_frame, text="Browse", command=self.browse_unmute_sound)
-        self.unmute_browse_button.grid(row=1, column=2, padx=5, pady=2)
+        self.unmute_browse_button.grid(row=1, column=2, padx=5, pady=5)
         
+        self.apply_sound_webframe = ttk.LabelFrame(main_frame, text="Sound Settings", padding=10)
         self.apply_sound_button = ttk.Button(self.sound_frame, text="Apply", command=self.apply_sounds)
-        self.apply_sound_button.grid(row=2, column=1, columnspan=2, pady=5)
+        self.apply_sound_button.grid(row=2, column=1, columnspan=2, pady=10, sticky="e")
         
         self.load_config()
         self.is_capturing_hotkey = False
@@ -120,13 +145,11 @@ class MicMuteApp:
         self.overlay = None
         self.create_overlay()
         
-        # Initialize pygame for sound
         pygame.mixer.init()
         self.mute_sound = None
         self.unmute_sound = None
-        self.last_mute_state = None  # Track last mute state for sound playback
+        self.last_mute_state = None
         
-        # Set initial hotkey after GUI setup
         try:
             self.current_hotkey = "ctrl+alt+m"
             keyboard.add_hotkey(self.current_hotkey, self.toggle_mute)
@@ -140,12 +163,9 @@ class MicMuteApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def get_resource_path(self, relative_path):
-        """Get absolute path to resource, works for dev and PyInstaller"""
         try:
-            # PyInstaller creates a temp folder and stores path in _MEIPASS
             base_path = sys._MEIPASS
         except AttributeError:
-            # Running in development mode
             base_path = os.path.abspath(os.path.dirname(__file__))
         return os.path.join(base_path, relative_path)
     
@@ -177,14 +197,15 @@ class MicMuteApp:
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
-                    self.position_var.set(config.get("overlay_position", "Top Left"))
-                    self.size_var.set(config.get("overlay_size", "32x32"))
-                    self.margin_var.set(str(config.get("overlay_margin", 0)))
+                    self.position_var.set(config.get("overlay_position", "Top Mid"))
+                    self.size_var.set(config.get("overlay_size", "48x48"))
+                    self.margin_var.set(str(config.get("overlay_margin", 10)))
+                    self.opacity_var.set(config.get("overlay_opacity", 0.7))
                     self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
                     self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
-                    print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+                    self.opacity_value_label.config(text=f"{self.opacity_var.get():.1f}")
+                    print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
             else:
-                # Set defaults if no config exists
                 self.mute_sound_var.set(default_mute_sound)
                 self.unmute_sound_var.set(default_unmute_sound)
                 self.save_config()
@@ -201,12 +222,13 @@ class MicMuteApp:
                 "overlay_position": self.position_var.get(),
                 "overlay_size": self.size_var.get(),
                 "overlay_margin": int(self.margin_var.get()),
+                "overlay_opacity": float(self.opacity_var.get()),
                 "mute_sound_file": self.mute_sound_var.get(),
                 "unmute_sound_file": self.unmute_sound_var.get()
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f)
-            print(f"Saved config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+            print(f"Saved config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
     
@@ -224,7 +246,7 @@ class MicMuteApp:
     def create_icon(self, color, letter):
         image = Image.new('RGB', (32, 32), color=color)
         draw = ImageDraw.Draw(image)
-        draw.text((10, 10), letter, fill="white")
+        draw.text((10, 10), letter, fill="white", font_size=16)
         return image
     
     def create_overlay(self):
@@ -235,19 +257,19 @@ class MicMuteApp:
             <path d="M12,20a9,9,0,0,1-7-3.37,1,1,0,0,1,1.56-1.26,7,7,0,0,0,10.92,0A1,1,0,0,1,19,16.63,9,9,0,0,1,12,20Z" style="fill:#ff0000"/>
             <path d="M12,2A5,5,0,0,0,7,7v4a5,5,0,0,0,10,0V7A5,5,0,0,0,12,2Z" style="fill:#ff0000"/>
             <path d="M12,22a1,1,0,0,1-1-1V19a1,1,0,0,1,2,0v2A1,1,0,0,1,12,22Z" style="fill:#ff0000"/>
-            <path d="M6 6 L18 18" stroke="white" stroke-width="1.5"/>
+            <path d="M6 6 L18 18" stroke="white" stroke-width="0"/>
         </svg>
         """
         try:
             icon_size = int(self.size_var.get().split('x')[0])
             png_data = io.BytesIO()
-            cairosvg.svg2png(bytestring=svg_code.encode('utf-8'), write_to=png_data, output_width=icon_size, output_height=icon_size)
+            cairosvg.svg2png(bytestring=svg_code.encode('utf-8'), write_to=png_data, output_width=icon_size, output_height=icon_size, background_color='transparent')
             muted_image = Image.open(png_data)
             print(f"SVG converted to PNG, mode: {muted_image.mode}, size: {icon_size}x{icon_size}")
             if muted_image.mode != 'RGBA':
                 muted_image = muted_image.convert('RGBA')
             self.muted_overlay_icon = ImageTk.PhotoImage(muted_image)
-            print(f"Created {icon_size}x{icon_size} vector muted icon with new SVG")
+            print(f"Created {icon_size}x{icon_size} vector muted icon with transparent background")
         except Exception as e:
             print(f"Error creating vector muted icon: {str(e)}")
             self.muted_overlay_icon = self.create_overlay_icon("red", muted=True)
@@ -255,9 +277,10 @@ class MicMuteApp:
         self.overlay = tk.Toplevel(self.root)
         self.overlay.overrideredirect(True)
         self.overlay.attributes('-topmost', True)
-        self.overlay.attributes('-alpha', 0.7)
-        self.overlay.attributes('-transparentcolor', 'black')
-        self.overlay_label = tk.Label(self.overlay, borderwidth=0, bg="black")
+        self.overlay.attributes('-alpha', self.opacity_var.get())
+        self.overlay.attributes('-transparentcolor', '#000000')
+        self.overlay.configure(bg='#000000')  # Set explicitly for transparency
+        self.overlay_label = tk.Label(self.overlay, borderwidth=0, bg='#000000')
         self.overlay_label.pack()
         if self.volume and self.volume.GetMute():
             self.overlay_label.config(image=self.muted_overlay_icon)
@@ -328,6 +351,19 @@ class MicMuteApp:
             messagebox.showerror("Error", "Margin must be a number")
             self.margin_var.set("0")
             self.update_overlay_position(self.position_var.get())
+    
+    def update_opacity(self, value):
+        try:
+            opacity = float(value)
+            self.opacity_var.set(opacity)
+            self.opacity_value_label.config(text=f"{opacity:.1f}")
+            if self.overlay:
+                self.overlay.attributes('-alpha', opacity)
+                print(f"Overlay opacity set to: {opacity}")
+            self.save_config()
+        except Exception as e:
+            print(f"Error updating overlay opacity: {str(e)}")
+            messagebox.showerror("Error", f"Failed to update opacity: {str(e)}")
     
     def create_overlay_icon(self, color, muted):
         icon_size = int(self.size_var.get().split('x')[0])
@@ -404,7 +440,6 @@ class MicMuteApp:
         sound = self.mute_sound if is_muted else self.unmute_sound
         sound_path = self.mute_sound_var.get().strip() if is_muted else self.unmute_sound_var.get().strip()
         
-        # Load sound only if not already loaded
         if sound is None and sound_path and os.path.exists(sound_path):
             try:
                 sound = pygame.mixer.Sound(sound_path)
@@ -429,20 +464,19 @@ class MicMuteApp:
                     self.unmute_sound = None
         
         if not sound:
-            # Fallback to default beep sound
-            pygame.mixer.Sound.play(pygame.mixer.Sound(buffer=pygame.sndarray.make_sound([[0] * 44100] * 2)))  # Simple beep
+            pygame.mixer.Sound.play(pygame.mixer.Sound(buffer=pygame.sndarray.make_sound([[0] * 44100] * 2)))
             print(f"No valid {'mute' if is_muted else 'unmute'} sound, using default beep")
-
+    
     def browse_mute_sound(self):
         file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
         if file_path:
             self.mute_sound_var.set(file_path)
-
+    
     def browse_unmute_sound(self):
         file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
         if file_path:
             self.unmute_sound_var.set(file_path)
-
+    
     def apply_sounds(self):
         self.mute_sound = None
         self.unmute_sound = None
@@ -466,7 +500,7 @@ class MicMuteApp:
                 self.unmute_sound = None
         
         self.save_config()
-
+    
     def update_status(self):
         if self.volume:
             try:
@@ -485,7 +519,6 @@ class MicMuteApp:
                     else:
                         self.overlay.withdraw()
                         print(f"Overlay hidden: {status}")
-                # Play sound on state change
                 if hasattr(self, 'last_mute_state') and mute_state != self.last_mute_state:
                     self.play_sound(mute_state)
                 self.last_mute_state = mute_state
