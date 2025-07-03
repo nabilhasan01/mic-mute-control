@@ -60,18 +60,43 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
    - Right-click tray icon, select "Exit".
 
 ## Building the Executable
-To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_unmute.wav`):
-1. Run `PyInstaller`:
+To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_unmute.wav`) and administrator privileges:
+
+1. Run the provided batch script to build the executable:
    ```bash
-   pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --hidden-import=pygame --add-binary "resource\libcairo-2.dll;resource" --add-data "resource\_mute.wav;resource" --add-data "resource\_unmute.wav;resource" mute_mic_app.py
+   build_mic_mute_exe.bat
    ```
-   - For Windows, use semicolons (`;`) as separators in `--add-binary` and `--add-data`. For Unix-like systems, use colons (`:`).
-   - If `comtypes.gen` is needed (check for `pycaw` errors):
+   - This script creates a manifest file to ensure the executable requests administrator privileges and runs `PyInstaller` with the necessary parameters.
+   - The script includes all required dependencies and resources (`libcairo-2.dll`, `_mute.wav`, `_unmute.wav`).
+   - If `comtypes.gen` is needed (check for `pycaw` errors), modify the batch script to include:
      ```bash
-     pyinstaller --onefile --windowed --hidden-import=pycaw --hidden-import=comtypes --hidden-import=pywin32 --hidden-import=pycaw.utils --hidden-import=pycaw.constants --hidden-import=PIL.ImageTk --hidden-import=PIL.ImageFilter --hidden-import=cairosvg --hidden-import=cairocffi --hidden-import=pygame --add-binary "resource\libcairo-2.dll;resource" --add-data "resource\_mute.wav;resource" --add-data "resource\_unmute.wav;resource" --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen" mute_mic_app.py
+     --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen"
      ```
 2. Find `mute_mic_app.exe` in the `dist` folder.
 3. Share the `.exe` (run as administrator on other PCs).
+
+### Manual PyInstaller Command (Alternative)
+If you prefer to build manually, use the following command:
+```bash
+pyinstaller --onefile --windowed ^
+  --hidden-import=pycaw ^
+  --hidden-import=comtypes ^
+  --hidden-import=pywin32 ^
+  --hidden-import=pycaw.utils ^
+  --hidden-import=pycaw.constants ^
+  --hidden-import=PIL.ImageTk ^
+  --hidden-import=PIL.ImageFilter ^
+  --hidden-import=cairosvg ^
+  --hidden-import=cairocffi ^
+  --hidden-import=pygame ^
+  --add-binary "resource\libcairo-2.dll;resource" ^
+  --add-data "resource\_mute.wav;resource" ^
+  --add-data "resource\_unmute.wav;resource" ^
+  --manifest mute_mic_app.exe.manifest ^
+  mute_mic_app.py
+```
+- For Windows, use semicolons (`;`) as separators in `--add-binary` and `--add-data`. For Unix-like systems, use colons (`:`).
+- Ensure a manifest file (`mute_mic_app.exe.manifest`) is created to enforce administrator privileges, as shown in the batch script.
 
 ## Troubleshooting
 - **`.exe` Fails**:
