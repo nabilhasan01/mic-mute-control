@@ -14,3 +14,4 @@ build/mute_mic_app/localpycs/pyimod01_archive.pyc
 build/mute_mic_app/EXE-00.toc
 build/mute_mic_app/base_library.zip
 build/mute_mic_app/Analysis-00.toc
+*.exe
