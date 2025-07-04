@@ -14,14 +14,14 @@ import json
 import os
 import pygame
 import sys
-import os.path
+import winreg
 
 class MicMuteApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Microphone Mute Control")
-        self.root.geometry("410x750")
-        self.root.resizable(False, False)
+        self.root.geometry("410x850")
+        self.root.resizable(False, True)
         self.root.configure(bg="#ffffff")
         
         pythoncom.CoInitialize()
@@ -135,6 +135,28 @@ class MicMuteApp:
         self.apply_sound_button = ttk.Button(self.sound_frame, text="Apply", command=self.apply_sounds)
         self.apply_sound_button.grid(row=2, column=1, columnspan=2, pady=10, sticky="e")
         
+        # Startup settings
+        self.startup_frame = ttk.LabelFrame(main_frame, text="Startup Settings", padding=10)
+        self.startup_frame.grid(row=7, column=0, columnspan=2, sticky="nsew", pady=10)
+        
+        self.start_minimized_var = tk.BooleanVar(value=False)
+        self.start_minimized_check = ttk.Checkbutton(
+            self.startup_frame, 
+            text="Start Minimized to Tray", 
+            variable=self.start_minimized_var, 
+            command=self.save_config
+        )
+        self.start_minimized_check.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        
+        self.start_with_windows_var = tk.BooleanVar(value=False)
+        self.start_with_windows_check = ttk.Checkbutton(
+            self.startup_frame, 
+            text="Start with Windows", 
+            variable=self.start_with_windows_var, 
+            command=self.toggle_windows_startup
+        )
+        self.start_with_windows_check.grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        
         self.load_config()
         self.is_capturing_hotkey = False
         
@@ -156,7 +178,12 @@ class MicMuteApp:
         except Exception as e:
             print(f"Error setting initial hotkey: {str(e)}")
         
-        self.root.withdraw()
+        # Only minimize if start_minimized_var is True
+        if not self.start_minimized_var.get():
+            self.root.deiconify()
+        else:
+            self.root.withdraw()
+        
         self.update_status()
         self.poll_mute_state()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -164,19 +191,15 @@ class MicMuteApp:
     def get_resource_path(self, relative_path, writable=False):
         """Get the path for a resource, handling both script and executable cases."""
         try:
-            # When running as a PyInstaller executable, use sys._MEIPASS for bundled resources
             base_path = sys._MEIPASS
         except AttributeError:
-            # When running as a script, use the script's directory
             base_path = os.path.abspath(os.path.dirname(__file__))
 
         if writable:
-            # Use a user-writable directory for config.json
             config_dir = os.path.join(os.path.expanduser("~"), ".mic_mute_app")
             os.makedirs(config_dir, exist_ok=True)
             return os.path.join(config_dir, os.path.basename(relative_path))
         else:
-            # Use bundled resource path for read-only resources (e.g., sounds, default config)
             return os.path.join(base_path, relative_path)
     
     def initialize_audio_device(self):
@@ -199,7 +222,6 @@ class MicMuteApp:
             messagebox.showerror("Error", f"Failed to refresh audio device: {str(e)}")
     
     def load_config(self):
-        # Try loading from user-writable directory first
         config_path = self.get_resource_path("config.json", writable=True)
         default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
         default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
@@ -214,10 +236,11 @@ class MicMuteApp:
                     self.opacity_var.set(config.get("overlay_opacity", 0.7))
                     self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
                     self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
+                    self.start_minimized_var.set(config.get("start_minimized", False))
+                    self.start_with_windows_var.set(config.get("start_with_windows", False))
                     self.opacity_value_label.config(text=f"{self.opacity_var.get():.1f}")
-                    print(f"Loaded config from {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+                    print(f"Loaded config from {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}, start_minimized={self.start_minimized_var.get()}, start_with_windows={self.start_with_windows_var.get()}")
             else:
-                # Fall back to bundled config.json
                 bundled_config_path = self.get_resource_path("config.json")
                 if os.path.exists(bundled_config_path):
                     with open(bundled_config_path, 'r') as f:
@@ -228,17 +251,23 @@ class MicMuteApp:
                         self.opacity_var.set(config.get("overlay_opacity", 0.7))
                         self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
                         self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
+                        self.start_minimized_var.set(config.get("start_minimized", False))
+                        self.start_with_windows_var.set(config.get("start_with_windows", False))
                         self.opacity_value_label.config(text=f"{self.opacity_var.get():.1f}")
-                        print(f"Loaded bundled config from {bundled_config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+                        print(f"Loaded bundled config from {bundled_config_path}: position AREA=Top Mid, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}, start_minimized={self.start_minimized_var.get()}, start_with_windows={self.start_with_windows_var.get()}")
                 else:
-                    # Use defaults if no config exists
                     self.mute_sound_var.set(default_mute_sound)
                     self.unmute_sound_var.set(default_unmute_sound)
+                    self.start_minimized_var.set(False)
+                    self.start_with_windows_var.set(False)
                     self.save_config()
+            self.toggle_windows_startup()
         except Exception as e:
             print(f"Error loading config: {str(e)}")
             self.mute_sound_var.set(default_mute_sound)
             self.unmute_sound_var.set(default_unmute_sound)
+            self.start_minimized_var.set(False)
+            self.start_with_windows_var.set(False)
             self.save_config()
     
     def save_config(self):
@@ -250,13 +279,37 @@ class MicMuteApp:
                 "overlay_margin": int(self.margin_var.get()),
                 "overlay_opacity": float(self.opacity_var.get()),
                 "mute_sound_file": self.mute_sound_var.get(),
-                "unmute_sound_file": self.unmute_sound_var.get()
+                "unmute_sound_file": self.unmute_sound_var.get(),
+                "start_minimized": self.start_minimized_var.get(),
+                "start_with_windows": self.start_with_windows_var.get()
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f)
-            print(f"Saved config to {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+            print(f"Saved config to {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}, start_minimized={self.start_minimized_var.get()}, start_with_windows={self.start_with_windows_var.get()}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
+    
+    def toggle_windows_startup(self):
+        try:
+            key = winreg.HKEY_CURRENT_USER
+            sub_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            app_name = "MicMuteApp"
+            executable_path = os.path.abspath(sys.executable if hasattr(sys, '_MEIPASS') else __file__)
+            
+            with winreg.OpenKey(key, sub_key, 0, winreg.KEY_SET_VALUE) as reg_key:
+                if self.start_with_windows_var.get():
+                    winreg.SetValueEx(reg_key, app_name, 0, winreg.REG_SZ, f'"{executable_path}"')
+                    print(f"Added to Windows startup: {executable_path}")
+                else:
+                    try:
+                        winreg.DeleteValue(reg_key, app_name)
+                        print("Removed from Windows startup")
+                    except FileNotFoundError:
+                        print("App was not in Windows startup")
+        except Exception as e:
+            print(f"Error toggling Windows startup: {str(e)}")
+            messagebox.showerror("Error", f"Failed to toggle Windows startup: {str(e)}")
+        self.save_config()
     
     def create_tray_icon(self):
         self.muted_tray_icon = self.create_icon("red", "M")
@@ -278,7 +331,7 @@ class MicMuteApp:
     def create_overlay(self):
         print("Creating overlay window")
         svg_code = """
-        <svg fill="red" width="64" height="64" viewBox="-0.24 0 1.52 1.52" xmlns="http://www.w3.org/2000/svg" class="cf-icon-svg"><path d="M0.933 0.633v0.105a0.421 0.421 0 0 1 -0.121 0.296 0.416 0.416 0 0 1 -0.131 0.09 0.4 0.4 0 0 1 -0.116 0.031v0.152h0.185a0.044 0.044 0 0 1 0 0.089H0.291a0.044 0.044 0 0 1 0 -0.089h0.185v-0.152a0.4 0.4 0 0 1 -0.116 -0.031 0.416 0.416 0 0 1 -0.131 -0.090 0.421 0.421 0 0 1 -0.121 -0.296v-0.105a0.044 0.044 0 1 1 0.089 0v0.105a0.33 0.33 0 0 0 0.096 0.233 0.319 0.319 0 0 0 0.458 0 0.33 0.33 0 0 0 0.096 -0.233v-0.105a0.044 0.044 0 1 1 0.089 0zM0.302 0.83a0.232 0.232 0 0 1 -0.019 -0.092V0.379A0.232 0.232 0 0 1 0.302 0.286a0.24 0.24 0 0 1 0.127 -0.127 0.232 0.232 0 0 1 0.093 -0.019 0.232 0.232 0 0 1 0.092 0.019 0.238 0.238 0 0 1 0.143 0.22l-0.001 0.359a0.237 0.237 0 0 1 -0.068 0.167 0.24 0.24 0 0 1 -0.075 0.051 0.232 0.232 0 0 1 -0.092 0.019 0.232 0.232 0 0 1 -0.093 -0.019A0.237 0.237 0 0 1 0.302 0.83"/></svg>
+        <svg fill="red" width="64" height="64" viewBox="-0.24 0 1.52 1.52" xmlns="http://www.w3.org/2000/svg" class="cf-icon-svg"><path d="M0.933 0.633v0.105a0.421 0.421 0 0 1 -0.121 0.296 0.416 0.416 0 0 1 -0.131 0.090 0.4 0.4 0 0 1 -0.116 0.031v0.152h0.185a0.044 0.044 0 0 1 0 0.089H0.291a0.044 0.044 0 0 1 0 -0.089h0.185v-0.152a0.4 0.4 0 0 1 -0.116 -0.031 0.416 0.416 0 0 1 -0.131 -0.090 0.421 0.421 0 0 1 -0.121 -0.296v-0.105a0.044 0.044 0 1 1 0.089 0v0.105a0.33 0.33 0 0 0 0.096 0.233 0.319 0.319 0 0 0 0.458 0 0.33 0.33 0 0 0 0.096 -0.233v-0.105a0.044 0.044 0 1 1 0.089 0zM0.302 0.83a0.232 0.232 0 0 1 -0.019 -0.092V0.379A0.232 0.232 0 0 1 0.302 0.286a0.24 0.24 0 0 1 0.127 -0.127 0.232 0.232 0 0 1 0.093 -0.019 0.232 0.232 0 0 1 0.092 0.019 0.238 0.238 0 0 1 0.143 0.22l-0.001 0.359a0.237 0.237 0 0 1 -0.068 0.167 0.24 0.24 0 0 1 -0.075 0.051 0.232 0.232 0 0 1 -0.092 0.019 0.232 0.232 0 0 1 -0.093 -0.019A0.237 0.237 0 0 1 0.302 0.83"/></svg>
         """
         try:
             icon_size = int(self.size_var.get().split('x')[0])
@@ -299,7 +352,7 @@ class MicMuteApp:
         self.overlay.attributes('-topmost', True)
         self.overlay.attributes('-alpha', self.opacity_var.get())
         self.overlay.attributes('-transparentcolor', '#000000')
-        self.overlay.configure(bg='#000000')  # Set explicitly for transparency
+        self.overlay.configure(bg='#000000')
         self.overlay_label = tk.Label(self.overlay, borderwidth=0, bg='#000000')
         self.overlay_label.pack()
         if self.volume and self.volume.GetMute():
@@ -348,7 +401,7 @@ class MicMuteApp:
             self.overlay.destroy()
             self.create_overlay()
             if was_muted:
-                self.overlay_label.config(image=self.muted_overlay_icon)
+                self.overlay_label.config(image=self.muted_overlay_index)
                 self.overlay.deiconify()
             self.save_config()
         except Exception as e:
@@ -391,7 +444,7 @@ class MicMuteApp:
         draw = ImageDraw.Draw(image)
         scale = icon_size / 48
         draw.ellipse((6*scale, 2*scale, 18*scale, 10*scale), fill=color)
-        draw.rectangle((11*scale, 10*scale, 13*scale, 14*scale), fill=color)
+        draw.line((11*scale, 10*scale, 13*scale, 14*scale), fill=color)
         draw.arc((6*scale, 8*scale, 18*scale, 14*scale), start=0, end=180, fill=color)
         if muted:
             draw.line((4*scale, 4*scale, 20*scale, 20*scale), fill="white", width=int(2*scale))
