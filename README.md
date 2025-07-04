@@ -12,7 +12,7 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
 - **Sound Feedback**: Play custom WAV files or bundled default sounds (`_mute.wav` for mute, `_unmute.wav` for unmute) on mute/unmute (configurable via GUI). Falls back to a default beep if custom sounds fail.
 - **Start Minimized**: Launches directly to the system tray, with the GUI hidden until requested.
 - **Cross-Resolution Support**: Overlay dynamically centers based on screen resolution (e.g., `x=936` for 1920x1080).
-- **Configuration Persistence**: Saves overlay settings (position, size, margin) and sound file paths to `config.json`.
+- **Configuration Persistence**: Saves overlay settings (position, size, margin, opacity) and sound file paths to `~/.mic_mute_app/config.json` for both the script and executable, ensuring settings persist across restarts.
 
 ## Requirements
 - Windows 10/11 (64-bit).
@@ -51,29 +51,31 @@ A lightweight Windows application to toggle microphone mute status with a hotkey
    - Right-click tray icon, select "Show Window".
    - Click "Set Hotkey", then press a key combination (e.g., `Ctrl+Shift+M`).
 4. **Customize Overlay**:
-   - Open the GUI, adjust "Position" (e.g., Top Mid), "Size" (e.g., 48x48), or "Margin" (e.g., 10).
-   - Changes apply instantly and are saved to `config.json`.
+   - Open the GUI, adjust "Position" (e.g., Top Mid), "Size" (e.g., 48x48), "Margin" (e.g., 10), or "Opacity" (e.g., 0.7).
+   - Changes apply instantly and are saved to `~/.mic_mute_app/config.json`.
 5. **Configure Sound**:
    - Open the GUI, click "Browse" to select custom WAV files for mute and unmute sounds, then click "Apply".
-   - Default sounds (`_mute.wav`, `_unmute.wav`) are used if no custom files are selected.
+   - Default sounds (`_mute.wav`, `_unmute.wav`)58 are used if no custom files are selected.
 6. **Exit**:
    - Right-click tray icon, select "Exit".
 
 ## Building the Executable
-To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_unmute.wav`) and administrator privileges:
+To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_unmute.wav`), `config.json`, and administrator privileges:
 
-1. Run the provided batch script to build the executable:
+1. Ensure `config.json` exists in the project directory with default settings (e.g., `{"overlay_position": "Top Mid", "overlay_size": "48x48", "overlay_margin": 10, "overlay_opacity": 0.7, "mute_sound_file": "resource\\_mute.wav", "unmute_sound_file": "resource\\_unmute.wav"}`).
+2. Run the provided batch script to build the executable:
    ```bash
    build_mic_mute_exe.bat
    ```
    - This script creates a manifest file to ensure the executable requests administrator privileges and runs `PyInstaller` with the necessary parameters.
-   - The script includes all required dependencies and resources (`libcairo-2.dll`, `_mute.wav`, `_unmute.wav`).
+   - The script includes all required dependencies and resources (`libcairo-2.dll`, `_mute.wav`, `_unmute.wav`, `config.json`).
+   - Settings are saved to `~/.mic_mute_app/config.json` to persist across restarts.
    - If `comtypes.gen` is needed (check for `pycaw` errors), modify the batch script to include:
      ```bash
      --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen"
      ```
-2. Find `mute_mic_app.exe` in the `dist` folder.
-3. Share the `.exe` (run as administrator on other PCs).
+3. Find `mute_mic_app.exe` in the `dist` folder.
+4. Share the `.exe` (run as administrator on other PCs).
 
 ### Manual PyInstaller Command (Alternative)
 If you prefer to build manually, use the following command:
@@ -92,17 +94,26 @@ pyinstaller --onefile --windowed ^
   --add-binary "resource\libcairo-2.dll;resource" ^
   --add-data "resource\_mute.wav;resource" ^
   --add-data "resource\_unmute.wav;resource" ^
+  --add-data "config.json;." ^
   --manifest mute_mic_app.exe.manifest ^
-  mute_mic_app.py
+  mute_mic_app Specialization.py
 ```
 - For Windows, use semicolons (`;`) as separators in `--add-binary` and `--add-data`. For Unix-like systems, use colons (`:`).
 - Ensure a manifest file (`mute_mic_app.exe.manifest`) is created to enforce administrator privileges, as shown in the batch script.
 
 ## Troubleshooting
 - **`.exe` Fails**:
-  - Run as administrator.
+  - Run as administrator to ensure hotkey and audio control functionality.
   - Ensure the microphone is the default recording device (Windows Sound settings).
   - Verify `libcairo-2.dll` is bundled with the `.exe` (included in the `resource` folder).
+- **Settings Not Saved**:
+  - Check that `~/.mic_mute_app/config.json` exists and is writable:
+    ```bash
+    dir %USERPROFILE%\.mic_mute_app
+    ```
+  - Ensure the executable is run as administrator, as writing to `~/.mic_mute_app` may fail without elevated permissions.
+  - Verify that `config.json` is included in the executable (bundled in the root directory via `--add-data "config.json;."`).
+  - Check console logs for `Error saving config` or `Error loading config` messages.
 - **Icon Issues**:
   - Check console for "SVG converted to PNG, mode: RGBA".
   - Ensure `libcairo-2.dll` is in the `resource` folder for development or bundled with the `.exe`.
@@ -113,7 +124,7 @@ pyinstaller --onefile --windowed ^
 - **Overlay Not Showing**:
   - Check console for "Overlay shown: Muted".
   - Ensure no conflicting apps block the overlay.
-  - Verify overlay position and size settings.
+  - Verify overlay position, size, and opacity settings in `~/.mic_mute_app/config.json`.
 - **Sound Not Playing**:
   - Ensure bundled WAV files (`_mute.wav`, `_unmute.wav`) are accessible in the executable's temporary directory or custom WAV files are valid and accessible.
   - Check console for sound loading errors (e.g., "Error loading mute sound").

@@ -132,7 +132,6 @@ class MicMuteApp:
         self.unmute_browse_button = ttk.Button(self.sound_frame, text="Browse", command=self.browse_unmute_sound)
         self.unmute_browse_button.grid(row=1, column=2, padx=5, pady=5)
         
-        self.apply_sound_webframe = ttk.LabelFrame(main_frame, text="Sound Settings", padding=10)
         self.apply_sound_button = ttk.Button(self.sound_frame, text="Apply", command=self.apply_sounds)
         self.apply_sound_button.grid(row=2, column=1, columnspan=2, pady=10, sticky="e")
         
@@ -162,12 +161,23 @@ class MicMuteApp:
         self.poll_mute_state()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
-    def get_resource_path(self, relative_path):
+    def get_resource_path(self, relative_path, writable=False):
+        """Get the path for a resource, handling both script and executable cases."""
         try:
+            # When running as a PyInstaller executable, use sys._MEIPASS for bundled resources
             base_path = sys._MEIPASS
         except AttributeError:
+            # When running as a script, use the script's directory
             base_path = os.path.abspath(os.path.dirname(__file__))
-        return os.path.join(base_path, relative_path)
+
+        if writable:
+            # Use a user-writable directory for config.json
+            config_dir = os.path.join(os.path.expanduser("~"), ".mic_mute_app")
+            os.makedirs(config_dir, exist_ok=True)
+            return os.path.join(config_dir, os.path.basename(relative_path))
+        else:
+            # Use bundled resource path for read-only resources (e.g., sounds, default config)
+            return os.path.join(base_path, relative_path)
     
     def initialize_audio_device(self):
         try:
@@ -189,7 +199,8 @@ class MicMuteApp:
             messagebox.showerror("Error", f"Failed to refresh audio device: {str(e)}")
     
     def load_config(self):
-        config_path = self.get_resource_path("config.json")
+        # Try loading from user-writable directory first
+        config_path = self.get_resource_path("config.json", writable=True)
         default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
         default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
         
@@ -204,11 +215,26 @@ class MicMuteApp:
                     self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
                     self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
                     self.opacity_value_label.config(text=f"{self.opacity_var.get():.1f}")
-                    print(f"Loaded config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+                    print(f"Loaded config from {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
             else:
-                self.mute_sound_var.set(default_mute_sound)
-                self.unmute_sound_var.set(default_unmute_sound)
-                self.save_config()
+                # Fall back to bundled config.json
+                bundled_config_path = self.get_resource_path("config.json")
+                if os.path.exists(bundled_config_path):
+                    with open(bundled_config_path, 'r') as f:
+                        config = json.load(f)
+                        self.position_var.set(config.get("overlay_position", "Top Mid"))
+                        self.size_var.set(config.get("overlay_size", "48x48"))
+                        self.margin_var.set(str(config.get("overlay_margin", 10)))
+                        self.opacity_var.set(config.get("overlay_opacity", 0.7))
+                        self.mute_sound_var.set(config.get("mute_sound_file", default_mute_sound))
+                        self.unmute_sound_var.set(config.get("unmute_sound_file", default_unmute_sound))
+                        self.opacity_value_label.config(text=f"{self.opacity_var.get():.1f}")
+                        print(f"Loaded bundled config from {bundled_config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+                else:
+                    # Use defaults if no config exists
+                    self.mute_sound_var.set(default_mute_sound)
+                    self.unmute_sound_var.set(default_unmute_sound)
+                    self.save_config()
         except Exception as e:
             print(f"Error loading config: {str(e)}")
             self.mute_sound_var.set(default_mute_sound)
@@ -216,7 +242,7 @@ class MicMuteApp:
             self.save_config()
     
     def save_config(self):
-        config_path = self.get_resource_path("config.json")
+        config_path = self.get_resource_path("config.json", writable=True)
         try:
             config = {
                 "overlay_position": self.position_var.get(),
@@ -228,7 +254,7 @@ class MicMuteApp:
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f)
-            print(f"Saved config: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
+            print(f"Saved config to {config_path}: position={self.position_var.get()}, size={self.size_var.get()}, margin={self.margin_var.get()}, opacity={self.opacity_var.get()}, mute_sound={self.mute_sound_var.get()}, unmute_sound={self.unmute_sound_var.get()}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
     
@@ -252,13 +278,7 @@ class MicMuteApp:
     def create_overlay(self):
         print("Creating overlay window")
         svg_code = """
-        <svg width="48" height="48" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="24" height="24" fill="none"/>
-            <path d="M12,20a9,9,0,0,1-7-3.37,1,1,0,0,1,1.56-1.26,7,7,0,0,0,10.92,0A1,1,0,0,1,19,16.63,9,9,0,0,1,12,20Z" style="fill:#ff0000"/>
-            <path d="M12,2A5,5,0,0,0,7,7v4a5,5,0,0,0,10,0V7A5,5,0,0,0,12,2Z" style="fill:#ff0000"/>
-            <path d="M12,22a1,1,0,0,1-1-1V19a1,1,0,0,1,2,0v2A1,1,0,0,1,12,22Z" style="fill:#ff0000"/>
-            <path d="M6 6 L18 18" stroke="white" stroke-width="0"/>
-        </svg>
+        <svg fill="red" width="64" height="64" viewBox="-0.24 0 1.52 1.52" xmlns="http://www.w3.org/2000/svg" class="cf-icon-svg"><path d="M0.933 0.633v0.105a0.421 0.421 0 0 1 -0.121 0.296 0.416 0.416 0 0 1 -0.131 0.09 0.4 0.4 0 0 1 -0.116 0.031v0.152h0.185a0.044 0.044 0 0 1 0 0.089H0.291a0.044 0.044 0 0 1 0 -0.089h0.185v-0.152a0.4 0.4 0 0 1 -0.116 -0.031 0.416 0.416 0 0 1 -0.131 -0.090 0.421 0.421 0 0 1 -0.121 -0.296v-0.105a0.044 0.044 0 1 1 0.089 0v0.105a0.33 0.33 0 0 0 0.096 0.233 0.319 0.319 0 0 0 0.458 0 0.33 0.33 0 0 0 0.096 -0.233v-0.105a0.044 0.044 0 1 1 0.089 0zM0.302 0.83a0.232 0.232 0 0 1 -0.019 -0.092V0.379A0.232 0.232 0 0 1 0.302 0.286a0.24 0.24 0 0 1 0.127 -0.127 0.232 0.232 0 0 1 0.093 -0.019 0.232 0.232 0 0 1 0.092 0.019 0.238 0.238 0 0 1 0.143 0.22l-0.001 0.359a0.237 0.237 0 0 1 -0.068 0.167 0.24 0.24 0 0 1 -0.075 0.051 0.232 0.232 0 0 1 -0.092 0.019 0.232 0.232 0 0 1 -0.093 -0.019A0.237 0.237 0 0 1 0.302 0.83"/></svg>
         """
         try:
             icon_size = int(self.size_var.get().split('x')[0])

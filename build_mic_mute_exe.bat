@@ -13,7 +13,7 @@ echo     ^</security^> >> mute_mic_app.exe.manifest
 echo   ^</trustInfo^> >> mute_mic_app.exe.manifest
 echo ^</assembly^> >> mute_mic_app.exe.manifest
 
-:: Run PyInstaller with manifest
+:: Run PyInstaller with manifest and include config.json
 pyinstaller --onefile --windowed ^
   --hidden-import=pycaw ^
   --hidden-import=comtypes ^
@@ -28,6 +28,7 @@ pyinstaller --onefile --windowed ^
   --add-binary "resource\libcairo-2.dll;resource" ^
   --add-data "resource\_mute.wav;resource" ^
   --add-data "resource\_unmute.wav;resource" ^
+  --add-data "config.json;." ^
   --manifest mute_mic_app.exe.manifest ^
   mute_mic_app.py
 
