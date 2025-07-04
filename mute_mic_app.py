@@ -18,7 +18,7 @@ import winreg
 
 class OverlayWidget(QWidget):
     def __init__(self, svg_code, size, opacity, position, margin, screen_size):
-        super().__init__(None)  # No parent to make it a top-level window
+        super().__init__(None)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -105,8 +105,9 @@ class MicMuteApp(QMainWindow):
             self.volume = cast(interface, POINTER(IAudioEndpointVolume))
             print("Audio device initialized successfully")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to initialize audio device: {str(e)}")
+            print(f"Failed to initialize audio device: {str(e)}")
             self.volume = None
+        # Note: Not uninitializing COM here to reuse in polling
 
     def refresh_device(self):
         try:
@@ -203,7 +204,7 @@ class MicMuteApp(QMainWindow):
         opacity_layout.addWidget(self.opacity_slider)
         self.opacity_label = QLabel("0.7")
         opacity_layout.addWidget(self.opacity_label)
-        overlay_frame.addLayout(opacity_layout)  # Fixed: Changed opacity_frame to opacity_layout
+        overlay_frame.addLayout(opacity_layout)
 
         layout.addLayout(overlay_frame)
 
@@ -311,7 +312,7 @@ class MicMuteApp(QMainWindow):
         config_path = self.get_resource_path("config.json", writable=True)
         default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
         default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
-        default_hotkey = "ctrl+alt+m"  # Default hotkey
+        default_hotkey = "ctrl+alt+m"
         try:
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
@@ -325,7 +326,6 @@ class MicMuteApp(QMainWindow):
                     self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
                     self.start_minimized_check.setChecked(config.get("start_minimized", False))
                     self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
-                    # Load hotkey
                     loaded_hotkey = config.get("hotkey", default_hotkey)
                     if loaded_hotkey != self.current_hotkey:
                         try:
@@ -337,7 +337,6 @@ class MicMuteApp(QMainWindow):
                             print(f"Loaded hotkey: {loaded_hotkey}")
                         except Exception as e:
                             print(f"Error setting loaded hotkey '{loaded_hotkey}': {str(e)}")
-                            # Fall back to default hotkey
                             if self.current_hotkey:
                                 keyboard.remove_hotkey(self.current_hotkey)
                             keyboard.add_hotkey(default_hotkey, self.toggle_mute)
@@ -359,7 +358,6 @@ class MicMuteApp(QMainWindow):
                         self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
                         self.start_minimized_check.setChecked(config.get("start_minimized", False))
                         self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
-                        # Load hotkey from bundled config
                         loaded_hotkey = config.get("hotkey", default_hotkey)
                         if loaded_hotkey != self.current_hotkey:
                             try:
@@ -371,14 +369,13 @@ class MicMuteApp(QMainWindow):
                                 print(f"Loaded hotkey from bundled config: {loaded_hotkey}")
                             except Exception as e:
                                 print(f"Error setting bundled hotkey '{loaded_hotkey}': {str(e)}")
-                                # Fall back to default hotkey
                                 if self.current_hotkey:
                                     keyboard.remove_hotkey(self.current_hotkey)
                                 keyboard.add_hotkey(default_hotkey, self.toggle_mute)
                                 self.current_hotkey = default_hotkey
                                 self.hotkey_display.setText(default_hotkey)
                                 print(f"Fell back to default hotkey: {default_hotkey}")
-                        print(f"Loaded bundled config from {bundled_config_path}")
+                    print(f"Loaded bundled config from {bundled_config_path}")
                 else:
                     self.mute_sound_edit.setText(default_mute_sound)
                     self.unmute_sound_edit.setText(default_unmute_sound)
@@ -423,7 +420,7 @@ class MicMuteApp(QMainWindow):
                 "unmute_sound_file": self.unmute_sound_edit.text(),
                 "start_minimized": self.start_minimized_check.isChecked(),
                 "start_with_windows": self.start_with_windows_check.isChecked(),
-                "hotkey": self.current_hotkey  # Save the current hotkey
+                "hotkey": self.current_hotkey
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f, indent=4)
@@ -505,7 +502,7 @@ class MicMuteApp(QMainWindow):
             keyboard.add_hotkey(new_hotkey, self.toggle_mute)
             self.current_hotkey = new_hotkey
             self.hotkey_display.setText(new_hotkey)
-            self.save_config()  # Save the new hotkey to config
+            self.save_config()
             print(f"Captured and set hotkey: {new_hotkey}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to set hotkey: {str(e)}")
@@ -522,29 +519,34 @@ class MicMuteApp(QMainWindow):
     def setup_polling(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.poll_mute_state)
-        self.timer.start(500)
+        self.timer.start(1000)  # Poll every 1 second
 
     def poll_mute_state(self):
         if self.volume:
             try:
-                current_mute = self.volume.GetMute()
-                if hasattr(self, 'last_mute_state') and current_mute != self.last_mute_state:
-                    print(f"External mute change detected: {'Muted' if current_mute else 'Unmuted'}")
+                mute_state = self.volume.GetMute()
+                if hasattr(self, 'last_mute_state') and mute_state != self.last_mute_state:
+                    print(f"External mute change detected: {'Muted' if mute_state else 'Unmuted'}")
                     self.update_status()
-                self.last_mute_state = current_mute
+                self.last_mute_state = mute_state
             except Exception as e:
                 print(f"Error polling mute state: {str(e)}")
+                self.status_label.setText("Status: Error")
 
     def toggle_mute(self):
         if self.volume:
             try:
+                pythoncom.CoInitialize()
                 current_mute = self.volume.GetMute()
                 new_mute = 1 if current_mute == 0 else 0
                 self.volume.SetMute(new_mute, None)
                 self.update_status()
                 print(f"Microphone toggled to: {'Muted' if new_mute else 'Unmuted'}")
             except Exception as e:
+                print(f"Failed to toggle mute: {str(e)}")
                 QMessageBox.critical(self, "Error", f"Failed to toggle mute: {str(e)}")
+            finally:
+                pythoncom.CoUninitialize()
 
     def play_sound(self, is_muted):
         sound = self.mute_sound if is_muted else self.unmute_sound
@@ -624,6 +626,7 @@ class MicMuteApp(QMainWindow):
                 self.last_mute_state = mute_state
             except Exception as e:
                 self.status_label.setText("Status: Error")
+                print(f"Failed to get mute status: {str(e)}")
                 QMessageBox.critical(self, "Error", f"Failed to get mute status: {str(e)}")
 
     def exit_app(self):
