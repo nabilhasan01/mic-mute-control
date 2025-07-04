@@ -20,7 +20,7 @@ class MicMuteApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Microphone Mute Control")
-        self.root.geometry("410x850")
+        self.root.geometry("410x880")
         self.root.resizable(False, True)
         self.root.configure(bg="#ffffff")
         
@@ -401,7 +401,7 @@ class MicMuteApp:
             self.overlay.destroy()
             self.create_overlay()
             if was_muted:
-                self.overlay_label.config(image=self.muted_overlay_index)
+                self.overlay_label.config(image=self.muted_overlay_icon)
                 self.overlay.deiconify()
             self.save_config()
         except Exception as e:
