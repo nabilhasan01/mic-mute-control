@@ -512,7 +512,7 @@ class MicMuteApp:
     def play_sound(self, is_muted):
         sound = self.mute_sound if is_muted else self.unmute_sound
         sound_path = self.mute_sound_var.get().strip() if is_muted else self.unmute_sound_var.get().strip()
-        
+
         if sound is None and sound_path and os.path.exists(sound_path):
             try:
                 sound = pygame.mixer.Sound(sound_path)
@@ -525,7 +525,7 @@ class MicMuteApp:
             except Exception as e:
                 print(f"Error loading {'mute' if is_muted else 'unmute'} sound for playback: {str(e)}")
                 sound = None
-        
+
         if sound:
             try:
                 pygame.mixer.Sound.play(sound)
@@ -535,10 +535,8 @@ class MicMuteApp:
                     self.mute_sound = None
                 else:
                     self.unmute_sound = None
-        
-        if not sound:
-            pygame.mixer.Sound.play(pygame.mixer.Sound(buffer=pygame.sndarray.make_sound([[0] * 44100] * 2)))
-            print(f"No valid {'mute' if is_muted else 'unmute'} sound, using default beep")
+        else:
+            print(f"No valid {'mute' if is_muted else 'unmute'} sound, skipping playback")
     
     def browse_mute_sound(self):
         file_path = filedialog.askopenfilename(filetypes=[("WAV files", "*.wav")])
@@ -561,7 +559,7 @@ class MicMuteApp:
                 self.mute_sound = pygame.mixer.Sound(mute_sound_path)
                 print(f"Mute sound loaded from: {mute_sound_path}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load mute sound file: {str(e)}")
+                print(f"Failed to load mute sound file: {str(e)}")
                 self.mute_sound = None
         
         if unmute_sound_path and os.path.exists(unmute_sound_path):
@@ -569,7 +567,7 @@ class MicMuteApp:
                 self.unmute_sound = pygame.mixer.Sound(unmute_sound_path)
                 print(f"Unmute sound loaded from: {unmute_sound_path}")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load unmute sound file: {str(e)}")
+                print(f"Failed to load unmute sound file: {str(e)}")
                 self.unmute_sound = None
         
         self.save_config()
