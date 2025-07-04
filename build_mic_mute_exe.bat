@@ -20,7 +20,7 @@ pyinstaller --onefile --windowed ^
   --hidden-import=pywin32 ^
   --hidden-import=pycaw.utils ^
   --hidden-import=pycaw.constants ^
-  --hidden-import=PyQt6 ^
+  --hidden-import=PyQt6.QtSvg ^
   --hidden-import=pygame ^
   --add-binary "resource\libcairo-2.dll;resource" ^
   --add-data "resource\_mute.wav;resource" ^

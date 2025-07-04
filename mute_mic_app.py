@@ -311,6 +311,7 @@ class MicMuteApp(QMainWindow):
         config_path = self.get_resource_path("config.json", writable=True)
         default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
         default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
+        default_hotkey = "ctrl+alt+m"  # Default hotkey
         try:
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
@@ -324,6 +325,25 @@ class MicMuteApp(QMainWindow):
                     self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
                     self.start_minimized_check.setChecked(config.get("start_minimized", False))
                     self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
+                    # Load hotkey
+                    loaded_hotkey = config.get("hotkey", default_hotkey)
+                    if loaded_hotkey != self.current_hotkey:
+                        try:
+                            if self.current_hotkey:
+                                keyboard.remove_hotkey(self.current_hotkey)
+                            keyboard.add_hotkey(loaded_hotkey, self.toggle_mute)
+                            self.current_hotkey = loaded_hotkey
+                            self.hotkey_display.setText(loaded_hotkey)
+                            print(f"Loaded hotkey: {loaded_hotkey}")
+                        except Exception as e:
+                            print(f"Error setting loaded hotkey '{loaded_hotkey}': {str(e)}")
+                            # Fall back to default hotkey
+                            if self.current_hotkey:
+                                keyboard.remove_hotkey(self.current_hotkey)
+                            keyboard.add_hotkey(default_hotkey, self.toggle_mute)
+                            self.current_hotkey = default_hotkey
+                            self.hotkey_display.setText(default_hotkey)
+                            print(f"Fell back to default hotkey: {default_hotkey}")
                     print(f"Loaded config from {config_path}")
             else:
                 bundled_config_path = self.get_resource_path("config.json")
@@ -339,12 +359,38 @@ class MicMuteApp(QMainWindow):
                         self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
                         self.start_minimized_check.setChecked(config.get("start_minimized", False))
                         self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
+                        # Load hotkey from bundled config
+                        loaded_hotkey = config.get("hotkey", default_hotkey)
+                        if loaded_hotkey != self.current_hotkey:
+                            try:
+                                if self.current_hotkey:
+                                    keyboard.remove_hotkey(self.current_hotkey)
+                                keyboard.add_hotkey(loaded_hotkey, self.toggle_mute)
+                                self.current_hotkey = loaded_hotkey
+                                self.hotkey_display.setText(loaded_hotkey)
+                                print(f"Loaded hotkey from bundled config: {loaded_hotkey}")
+                            except Exception as e:
+                                print(f"Error setting bundled hotkey '{loaded_hotkey}': {str(e)}")
+                                # Fall back to default hotkey
+                                if self.current_hotkey:
+                                    keyboard.remove_hotkey(self.current_hotkey)
+                                keyboard.add_hotkey(default_hotkey, self.toggle_mute)
+                                self.current_hotkey = default_hotkey
+                                self.hotkey_display.setText(default_hotkey)
+                                print(f"Fell back to default hotkey: {default_hotkey}")
                         print(f"Loaded bundled config from {bundled_config_path}")
                 else:
                     self.mute_sound_edit.setText(default_mute_sound)
                     self.unmute_sound_edit.setText(default_unmute_sound)
                     self.start_minimized_check.setChecked(False)
                     self.start_with_windows_check.setChecked(False)
+                    self.current_hotkey = default_hotkey
+                    self.hotkey_display.setText(default_hotkey)
+                    try:
+                        keyboard.add_hotkey(self.current_hotkey, self.toggle_mute)
+                        print(f"Set default hotkey: {self.current_hotkey}")
+                    except Exception as e:
+                        print(f"Error setting default hotkey: {str(e)}")
                     self.save_config()
             self.toggle_windows_startup()
             self.update_overlay()
@@ -354,6 +400,15 @@ class MicMuteApp(QMainWindow):
             self.unmute_sound_edit.setText(default_unmute_sound)
             self.start_minimized_check.setChecked(False)
             self.start_with_windows_check.setChecked(False)
+            self.current_hotkey = default_hotkey
+            self.hotkey_display.setText(default_hotkey)
+            try:
+                if self.current_hotkey:
+                    keyboard.remove_hotkey(self.current_hotkey)
+                keyboard.add_hotkey(self.current_hotkey, self.toggle_mute)
+                print(f"Set default hotkey after error: {self.current_hotkey}")
+            except Exception as e:
+                print(f"Error setting default hotkey after config load failure: {str(e)}")
             self.save_config()
 
     def save_config(self):
@@ -367,10 +422,11 @@ class MicMuteApp(QMainWindow):
                 "mute_sound_file": self.mute_sound_edit.text(),
                 "unmute_sound_file": self.unmute_sound_edit.text(),
                 "start_minimized": self.start_minimized_check.isChecked(),
-                "start_with_windows": self.start_with_windows_check.isChecked()
+                "start_with_windows": self.start_with_windows_check.isChecked(),
+                "hotkey": self.current_hotkey  # Save the current hotkey
             }
             with open(config_path, 'w') as f:
-                json.dump(config, f)
+                json.dump(config, f, indent=4)
             print(f"Saved config to {config_path}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
@@ -449,6 +505,7 @@ class MicMuteApp(QMainWindow):
             keyboard.add_hotkey(new_hotkey, self.toggle_mute)
             self.current_hotkey = new_hotkey
             self.hotkey_display.setText(new_hotkey)
+            self.save_config()  # Save the new hotkey to config
             print(f"Captured and set hotkey: {new_hotkey}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to set hotkey: {str(e)}")
