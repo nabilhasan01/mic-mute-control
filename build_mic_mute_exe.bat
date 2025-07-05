@@ -1,4 +1,12 @@
 @echo off
+:: Check for admin privileges and prompt for elevation if needed
+net session >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo This script requires administrative privileges. Requesting elevation...
+    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d %CD% && %0 %1' -Verb RunAs"
+    exit /b
+)
+
 set "BUILD_TYPE=%1"
 
 if "%BUILD_TYPE%"=="" (
@@ -10,12 +18,12 @@ if "%BUILD_TYPE%"=="" (
 
 echo Building Microphone Mute Control executable with admin privileges for %BUILD_TYPE%...
 
-:: Set executable and manifest names based on build type
+:: Set executable and script names based on build type
 if "%BUILD_TYPE%"=="tkinter" (
-    set "EXE_NAME=Microphone Mute Control tkinter"
+    set "EXE_NAME=Microphone Mute Control Tkinter"
     set "SCRIPT_NAME=mic_state_controller_tkinter.py"
 ) else if "%BUILD_TYPE%"=="pyqt" (
-    set "EXE_NAME=Microphone Mute Control pyQt"
+    set "EXE_NAME=Microphone Mute Control PyQt"
     set "SCRIPT_NAME=mic_state_controller_pyqt.py"
 ) else (
     echo Error: Invalid build type '%BUILD_TYPE%'. Use 'tkinter' or 'pyqt'.
@@ -23,19 +31,16 @@ if "%BUILD_TYPE%"=="tkinter" (
     exit /b 1
 )
 
-:: Create manifest file
-echo ^<^?xml version="1.0" encoding="UTF-8" standalone="yes"^?^> > "%EXE_NAME%.exe.manifest"
-echo ^<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"^> >> "%EXE_NAME%.exe.manifest"
-echo   ^<trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"^> >> "%EXE_NAME%.exe.manifest"
-echo     ^<security^> >> "%EXE_NAME%.exe.manifest"
-echo       ^<requestedPrivileges^> >> "%EXE_NAME%.exe.manifest"
-echo         ^<requestedExecutionLevel level="requireAdministrator" uiAccess="false"/^> >> "%EXE_NAME%.exe.manifest"
-echo       ^</requestedPrivileges^> >> "%EXE_NAME%.exe.manifest"
-echo     ^</security^> >> "%EXE_NAME%.exe.manifest"
-echo   ^</trustInfo^> >> "%EXE_NAME%.exe.manifest"
-echo ^</assembly^> >> "%EXE_NAME%.exe.manifest"
+:: Check for icon file (optional, but recommended for --uac-admin reliability)
+set "ICON_FILE=icon.ico"
+if exist "%ICON_FILE%" (
+    set "ICON_OPTION=--icon=%ICON_FILE%"
+) else (
+    echo Warning: %ICON_FILE% not found. Building without an icon, which may affect --uac-admin reliability.
+    set "ICON_OPTION="
+)
 
-:: Run PyInstaller
+:: Run PyInstaller with --uac-admin
 if "%BUILD_TYPE%"=="tkinter" (
     pyinstaller --onefile --windowed ^
       --hidden-import=pycaw ^
@@ -52,7 +57,8 @@ if "%BUILD_TYPE%"=="tkinter" (
       --add-data "resource\_mute.wav;resource" ^
       --add-data "resource\_unmute.wav;resource" ^
       --add-data "config.json;." ^
-      --manifest "%EXE_NAME%.exe.manifest" ^
+      --uac-admin ^
+      %ICON_OPTION% ^
       --name "%EXE_NAME%" ^
       %SCRIPT_NAME%
 ) else (
@@ -68,13 +74,19 @@ if "%BUILD_TYPE%"=="tkinter" (
       --add-data "resource\_mute.wav;resource" ^
       --add-data "resource\_unmute.wav;resource" ^
       --add-data "config.json;." ^
-      --manifest "%EXE_NAME%.exe.manifest" ^
+      --uac-admin ^
+      %ICON_OPTION% ^
       --name "%EXE_NAME%" ^
       %SCRIPT_NAME%
 )
 
-:: Clean up manifest file
-del "%EXE_NAME%.exe.manifest"
+:: Check if PyInstaller build was successful
+if %ERRORLEVEL% neq 0 (
+    echo Error: PyInstaller build failed.
+    pause
+    exit /b 1
+)
 
-echo Build complete. Executable is in the 'dist' folder.
+echo Build complete. Executable in 'dist' folder should require admin privileges.
+echo Run dist\%EXE_NAME%.exe to verify the UAC prompt.
 pause
