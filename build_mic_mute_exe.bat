@@ -1,5 +1,4 @@
 @echo off
-:: Check for admin privileges and prompt for elevation if needed
 net session >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     echo This script requires administrative privileges. Requesting elevation...
@@ -18,7 +17,6 @@ if "%BUILD_TYPE%"=="" (
 
 echo Building Microphone Mute Control executable with admin privileges for %BUILD_TYPE%...
 
-:: Set executable and script names based on build type
 if "%BUILD_TYPE%"=="tkinter" (
     set "EXE_NAME=Microphone Mute Control Tkinter"
     set "SCRIPT_NAME=mic_state_controller_tkinter.py"
@@ -31,7 +29,6 @@ if "%BUILD_TYPE%"=="tkinter" (
     exit /b 1
 )
 
-:: Check for icon file (optional, but recommended for --uac-admin reliability)
 set "ICON_FILE=icon.ico"
 if exist "%ICON_FILE%" (
     set "ICON_OPTION=--icon=%ICON_FILE%"
@@ -40,7 +37,6 @@ if exist "%ICON_FILE%" (
     set "ICON_OPTION="
 )
 
-:: Run PyInstaller with --uac-admin
 if "%BUILD_TYPE%"=="tkinter" (
     pyinstaller --onefile --windowed ^
       --hidden-import=pycaw ^
@@ -80,7 +76,6 @@ if "%BUILD_TYPE%"=="tkinter" (
       %SCRIPT_NAME%
 )
 
-:: Check if PyInstaller build was successful
 if %ERRORLEVEL% neq 0 (
     echo Error: PyInstaller build failed.
     pause
