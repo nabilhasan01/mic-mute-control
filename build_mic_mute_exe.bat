@@ -52,6 +52,8 @@ if "%BUILD_TYPE%"=="tkinter" (
       --add-binary "resource\libcairo-2.dll;resource" ^
       --add-data "resource\_mute.wav;resource" ^
       --add-data "resource\_unmute.wav;resource" ^
+      --add-data "resource\mute_icon.ico;resource" ^
+      --add-data "resource\icon.ico;resource" ^
       --add-data "config.json;." ^
       --uac-admin ^
       %ICON_OPTION% ^
@@ -69,6 +71,8 @@ if "%BUILD_TYPE%"=="tkinter" (
       --add-binary "resource\libcairo-2.dll;resource" ^
       --add-data "resource\_mute.wav;resource" ^
       --add-data "resource\_unmute.wav;resource" ^
+      --add-data "resource\mute_icon.ico;resource" ^
+      --add-data "resource\icon.ico;resource" ^
       --add-data "config.json;." ^
       --uac-admin ^
       %ICON_OPTION% ^
