@@ -71,6 +71,12 @@ class MicMuteApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        icon_path = self.get_resource_path(os.path.join("resource", "icon.ico"))
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            print(f"[ERROR] Window icon file {icon_path} not found")
+
         self.setWindowTitle("Microphone Mute Control")
         self.setFixedWidth(400)
         self.setMinimumHeight(600)
