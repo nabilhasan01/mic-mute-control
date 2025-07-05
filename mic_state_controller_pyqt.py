@@ -5,6 +5,7 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 from comtypes import CLSCTX_ALL
 from ctypes import cast, POINTER
 import keyboard
+from keyboard import is_pressed
 import pygame
 import sys
 import os
@@ -106,10 +107,16 @@ class MicMuteApp(QMainWindow):
         # Setup hotkey
         self.current_hotkey = "ctrl+alt+m"
         try:
-            keyboard.add_hotkey(self.current_hotkey, self.trigger_toggle_mute.emit)
-            print(f"Initial hotkey set: {self.current_hotkey}")
+            def check_hotkey(event):
+                keys = self.current_hotkey.split('+')
+                all_pressed = all(is_pressed(key.strip()) for key in keys)
+                if all_pressed and not self.is_toggling:
+                    self.trigger_toggle_mute.emit()
+            
+            self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
+            print(f"Initial hotkey hook set: {self.current_hotkey}")
         except Exception as e:
-            print(f"Error setting initial hotkey: {str(e)}")
+            print(f"Error setting initial hotkey hook: {str(e)}")
 
         self.load_config()
         self.update_status()
@@ -498,20 +505,30 @@ class MicMuteApp(QMainWindow):
                     loaded_hotkey = config.get("hotkey", default_hotkey)
                     if loaded_hotkey != self.current_hotkey:
                         try:
-                            if self.current_hotkey:
-                                keyboard.remove_hotkey(self.current_hotkey)
-                            keyboard.add_hotkey(loaded_hotkey, self.trigger_toggle_mute.emit)
+                            if hasattr(self, 'hotkey_hook'):
+                                keyboard.unhook(self.hotkey_hook)
+                            def check_hotkey(event):
+                                keys = loaded_hotkey.split('+')
+                                all_pressed = all(is_pressed(key.strip()) for key in keys)
+                                if all_pressed and not self.is_toggling:
+                                    self.trigger_toggle_mute.emit()
+                            self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
                             self.current_hotkey = loaded_hotkey
                             self.hotkey_display.setText(loaded_hotkey)
-                            print(f"Loaded hotkey: {loaded_hotkey}")
+                            print(f"Loaded hotkey hook: {loaded_hotkey}")
                         except Exception as e:
-                            print(f"Error setting loaded hotkey '{loaded_hotkey}': {str(e)}")
-                            if self.current_hotkey:
-                                keyboard.remove_hotkey(self.current_hotkey)
-                            keyboard.add_hotkey(default_hotkey, self.trigger_toggle_mute.emit)
+                            print(f"Error setting loaded hotkey hook '{loaded_hotkey}': {str(e)}")
+                            if hasattr(self, 'hotkey_hook'):
+                                keyboard.unhook(self.hotkey_hook)
+                            def check_default_hotkey(event):
+                                keys = default_hotkey.split('+')
+                                all_pressed = all(is_pressed(key.strip()) for key in keys)
+                                if all_pressed and not self.is_toggling:
+                                    self.trigger_toggle_mute.emit()
+                            self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
                             self.current_hotkey = default_hotkey
                             self.hotkey_display.setText(default_hotkey)
-                            print(f"Fell back to default hotkey: {default_hotkey}")
+                            print(f"Fell back to default hotkey hook: {default_hotkey}")
                     print(f"Loaded config from {config_path}")
             else:
                 bundled_config_path = self.get_resource_path("config.json")
@@ -530,20 +547,30 @@ class MicMuteApp(QMainWindow):
                         loaded_hotkey = config.get("hotkey", default_hotkey)
                         if loaded_hotkey != self.current_hotkey:
                             try:
-                                if self.current_hotkey:
-                                    keyboard.remove_hotkey(self.current_hotkey)
-                                keyboard.add_hotkey(loaded_hotkey, self.trigger_toggle_mute.emit)
+                                if hasattr(self, 'hotkey_hook'):
+                                    keyboard.unhook(self.hotkey_hook)
+                                def check_hotkey(event):
+                                    keys = loaded_hotkey.split('+')
+                                    all_pressed = all(is_pressed(key.strip()) for key in keys)
+                                    if all_pressed and not self.is_toggling:
+                                        self.trigger_toggle_mute.emit()
+                                self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
                                 self.current_hotkey = loaded_hotkey
                                 self.hotkey_display.setText(loaded_hotkey)
                                 print(f"Loaded hotkey from bundled config: {loaded_hotkey}")
                             except Exception as e:
-                                print(f"Error setting bundled hotkey '{loaded_hotkey}': {str(e)}")
-                                if self.current_hotkey:
-                                    keyboard.remove_hotkey(self.current_hotkey)
-                                keyboard.add_hotkey(default_hotkey, self.trigger_toggle_mute.emit)
+                                print(f"Error setting bundled hotkey hook '{loaded_hotkey}': {str(e)}")
+                                if hasattr(self, 'hotkey_hook'):
+                                    keyboard.unhook(self.hotkey_hook)
+                                def check_default_hotkey(event):
+                                    keys = default_hotkey.split('+')
+                                    all_pressed = all(is_pressed(key.strip()) for key in keys)
+                                    if all_pressed and not self.is_toggling:
+                                        self.trigger_toggle_mute.emit()
+                                self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
                                 self.current_hotkey = default_hotkey
                                 self.hotkey_display.setText(default_hotkey)
-                                print(f"Fell back to default hotkey: {default_hotkey}")
+                                print(f"Fell back to default hotkey hook: {default_hotkey}")
                     print(f"Loaded bundled config from {bundled_config_path}")
                 else:
                     self.mute_sound_edit.setText(default_mute_sound)
@@ -553,10 +580,17 @@ class MicMuteApp(QMainWindow):
                     self.current_hotkey = default_hotkey
                     self.hotkey_display.setText(default_hotkey)
                     try:
-                        keyboard.add_hotkey(self.current_hotkey, self.trigger_toggle_mute.emit)
-                        print(f"Set default hotkey: {self.current_hotkey}")
+                        if hasattr(self, 'hotkey_hook'):
+                            keyboard.unhook(self.hotkey_hook)
+                        def check_default_hotkey(event):
+                            keys = default_hotkey.split('+')
+                            all_pressed = all(is_pressed(key.strip()) for key in keys)
+                            if all_pressed and not self.is_toggling:
+                                self.trigger_toggle_mute.emit()
+                        self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
+                        print(f"Set default hotkey hook: {self.current_hotkey}")
                     except Exception as e:
-                        print(f"Error setting default hotkey: {str(e)}")
+                        print(f"Error setting default hotkey hook: {str(e)}")
                     self.save_config()
             self.toggle_windows_startup()
             self.update_overlay()
@@ -569,12 +603,17 @@ class MicMuteApp(QMainWindow):
             self.current_hotkey = default_hotkey
             self.hotkey_display.setText(default_hotkey)
             try:
-                if self.current_hotkey:
-                    keyboard.remove_hotkey(self.current_hotkey)
-                keyboard.add_hotkey(self.current_hotkey, self.trigger_toggle_mute.emit)
-                print(f"Set default hotkey after error: {self.current_hotkey}")
+                if hasattr(self, 'hotkey_hook'):
+                    keyboard.unhook(self.hotkey_hook)
+                def check_default_hotkey(event):
+                    keys = default_hotkey.split('+')
+                    all_pressed = all(is_pressed(key.strip()) for key in keys)
+                    if all_pressed and not self.is_toggling:
+                        self.trigger_toggle_mute.emit()
+                self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
+                print(f"Set default hotkey hook after error: {self.current_hotkey}")
             except Exception as e:
-                print(f"Error setting default hotkey after config load failure: {str(e)}")
+                print(f"Error setting default hotkey hook after config load failure: {str(e)}")
             self.save_config()
 
     def save_config(self):
@@ -670,13 +709,20 @@ class MicMuteApp(QMainWindow):
 
     def apply_captured_hotkey(self, new_hotkey):
         try:
-            if self.current_hotkey:
-                keyboard.remove_hotkey(self.current_hotkey)
-            keyboard.add_hotkey(new_hotkey, self.trigger_toggle_mute.emit)
+            if hasattr(self, 'hotkey_hook'):
+                keyboard.unhook(self.hotkey_hook)
+            
+            def check_hotkey(event):
+                keys = new_hotkey.split('+')
+                all_pressed = all(is_pressed(key.strip()) for key in keys)
+                if all_pressed and not self.is_toggling:
+                    self.trigger_toggle_mute.emit()
+            
+            self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
             self.current_hotkey = new_hotkey
             self.hotkey_display.setText(new_hotkey)
             self.save_config()
-            print(f"[HotkeyWorker] New hotkey set: {new_hotkey}")
+            print(f"[HotkeyWorker] New hotkey hook set: {new_hotkey}")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to set hotkey: {str(e)}")
         finally:
@@ -744,10 +790,10 @@ class MicMuteApp(QMainWindow):
 
     def exit_app(self):
         try:
-            if self.current_hotkey:
-                keyboard.remove_hotkey(self.current_hotkey)
-        except:
-            pass
+            if hasattr(self, 'hotkey_hook'):
+                keyboard.unhook(self.hotkey_hook)
+        except Exception as e:
+            print(f"Error removing hotkey hook: {str(e)}")
         if self.overlay:
             self.overlay.close()
             self.overlay = None
@@ -758,9 +804,10 @@ class MicMuteApp(QMainWindow):
 
     def closeEvent(self, event):
         try:
-            keyboard.remove_hotkey(self.current_hotkey)
-        except:
-            pass
+            if hasattr(self, 'hotkey_hook'):
+                keyboard.unhook(self.hotkey_hook)
+        except Exception as e:
+            print(f"Error removing hotkey hook: {str(e)}")
         event.accept()
 
 if __name__ == "__main__":
