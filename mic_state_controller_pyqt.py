@@ -423,25 +423,26 @@ class MicMuteApp(QMainWindow):
         layout.addStretch()
 
     def setup_tray_icon(self):
-        self.muted_tray_icon = self.create_tray_icon("red", "M")
-        self.unmuted_tray_icon = self.create_tray_icon("green", "U")
+        self.muted_tray_icon = self.create_tray_icon("mute_icon.ico")
+        self.unmuted_tray_icon = self.create_tray_icon("icon.ico")
         self.tray_icon = QSystemTrayIcon(self.unmuted_tray_icon, self)
         menu = QMenu()
-        menu.addAction("Toggle Mute", self.queue_toggle)  # Route tray toggle through debouncing
+        menu.addAction("Toggle Mute", self.queue_toggle)
         menu.addAction("Show Window", self.show)
         menu.addAction("Exit", self.exit_app)
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.show()
 
-    def create_tray_icon(self, color, letter):
-        image = QImage(32, 32, QImage.Format.Format_RGB32)
-        image.fill(Qt.GlobalColor[color])
-        painter = QPainter(image)
-        painter.setPen(Qt.GlobalColor.white)
-        painter.setFont(painter.font())
-        painter.drawText(image.rect(), Qt.AlignmentFlag.AlignCenter, letter)
-        painter.end()
-        return QIcon(QPixmap.fromImage(image))
+    def create_tray_icon(self, icon_filename):
+        icon_path = self.get_resource_path(os.path.join("resource", icon_filename))
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+        else:
+            print(f"[ERROR] Icon file {icon_path} not found, using fallback icon")
+            # Fallback to a default icon (e.g., empty QIcon or a generated one)
+            image = QImage(32, 32, QImage.Format.Format_RGB32)
+            image.fill(Qt.GlobalColor.gray)
+            return QIcon(QPixmap.fromImage(image))
 
     def setup_overlay(self):
         self.svg_code = """

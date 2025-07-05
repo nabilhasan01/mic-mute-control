@@ -29,7 +29,7 @@ if "%BUILD_TYPE%"=="tkinter" (
     exit /b 1
 )
 
-set "ICON_FILE=icon.ico"
+set "ICON_FILE=resource\icon.ico"
 if exist "%ICON_FILE%" (
     set "ICON_OPTION=--icon=%ICON_FILE%"
 ) else (
@@ -82,6 +82,4 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo Build complete. Executable in 'dist' folder should require admin privileges.
-echo Run dist\%EXE_NAME%.exe to verify the UAC prompt.
 pause
