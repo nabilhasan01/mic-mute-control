@@ -17,3 +17,17 @@ build/mute_mic_app/Analysis-00.toc
 *.exe
 mic_mute_tkinter.py
 *.spec
+build/mic_mute_pyqt/Analysis-00.toc
+build/mic_mute_pyqt/base_library.zip
+build/mic_mute_pyqt/EXE-00.toc
+build/mic_mute_pyqt/localpycs/pyimod01_archive.pyc
+build/mic_mute_pyqt/localpycs/pyimod02_importers.pyc
+build/mic_mute_pyqt/localpycs/pyimod03_ctypes.pyc
+build/mic_mute_pyqt/localpycs/pyimod04_pywin32.pyc
+build/mic_mute_pyqt/localpycs/struct.pyc
+build/mic_mute_pyqt/mic_mute_pyqt.pkg
+build/mic_mute_pyqt/PKG-00.toc
+build/mic_mute_pyqt/PYZ-00.pyz
+build/mic_mute_pyqt/PYZ-00.toc
+build/mic_mute_pyqt/warn-mic_mute_pyqt.txt
+build/mic_mute_pyqt/xref-mic_mute_pyqt.html
