@@ -38,7 +38,6 @@ class OverlayWidget(QWidget):
         self.setFixedSize(self.size, self.size)
         self.setWindowOpacity(opacity)
         self.update_position(position, margin, screen_size)
-        print(f"Overlay created: size={self.size}x{self.size}, opacity={opacity}")
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -65,7 +64,6 @@ class OverlayWidget(QWidget):
         else:
             x, y = (screen_width - self.size) // 2, margin
         self.move(x, y)
-        print(f"Overlay positioned at {x},{y} for screen {screen_width}x{screen_height}, position: {position}, margin: {margin}")
 
 class MicMuteApp(QMainWindow):
     trigger_toggle_mute = pyqtSignal()
@@ -767,5 +765,4 @@ class MicMuteApp(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MicMuteApp()
-    window.show()
     sys.exit(app.exec())
