@@ -79,7 +79,7 @@ class MicMuteApp(QMainWindow):
 
         self.setWindowTitle("Microphone Mute Control")
         self.setFixedWidth(450)
-        self.setMinimumHeight(600)
+        self.setFixedHeight(560)
 
         # Initialize COM
         pythoncom.CoInitialize()
@@ -246,6 +246,12 @@ class MicMuteApp(QMainWindow):
                 print(f"[ERROR] Failed to reinitialize pygame mixer: {str(e)}")
                 return
 
+        # Check if sound is enabled
+        sound_enabled = self.mute_sound_check.isChecked() if is_muted else self.unmute_sound_check.isChecked()
+        if not sound_enabled:
+            print(f"[INFO] {'Mute' if is_muted else 'Unmute'} sound disabled, skipping playback")
+            return
+
         sound = self.mute_sound if is_muted else self.unmute_sound
         sound_path = self.mute_sound_edit.text().strip() if is_muted else self.unmute_sound_edit.text().strip()
 
@@ -338,7 +344,7 @@ class MicMuteApp(QMainWindow):
         # Toggle and Minimize buttons
         button_layout = QHBoxLayout()
         self.toggle_button = QPushButton("Toggle Mute")
-        self.toggle_button.clicked.connect(self.queue_toggle)  # Route through debouncing
+        self.toggle_button.clicked.connect(self.queue_toggle)
         button_layout.addWidget(self.toggle_button)
         self.refresh_button = QPushButton("Refresh Device")
         self.refresh_button.clicked.connect(self.refresh_device)
@@ -417,28 +423,34 @@ class MicMuteApp(QMainWindow):
         sound_label.setStyleSheet("font-weight: bold;")
         sound_frame.addWidget(sound_label)
 
+        # Mute sound layout
         mute_sound_layout = QHBoxLayout()
-        mute_sound_layout.addWidget(QLabel("Mute Sound:"))
+        self.mute_sound_check = QCheckBox()
+        self.mute_sound_check.setChecked(True)
+        self.mute_sound_check.stateChanged.connect(self.save_config)
+        mute_sound_layout.addWidget(self.mute_sound_check)
+        mute_sound_layout.addWidget(QLabel("Mute:"))
         self.mute_sound_edit = QLineEdit()
+        self.mute_sound_edit.setFixedWidth(250)
         mute_sound_layout.addWidget(self.mute_sound_edit)
         mute_browse_button = QPushButton("Browse")
         mute_browse_button.clicked.connect(self.browse_mute_sound)
         mute_sound_layout.addWidget(mute_browse_button)
-        mute_clear_button = QPushButton("Clear")
-        mute_clear_button.clicked.connect(self.clear_mute_sound)
-        mute_sound_layout.addWidget(mute_clear_button)
         sound_frame.addLayout(mute_sound_layout)
 
+        # Unmute sound layout
         unmute_sound_layout = QHBoxLayout()
-        unmute_sound_layout.addWidget(QLabel("Unmute Sound:"))
+        self.unmute_sound_check = QCheckBox()
+        self.unmute_sound_check.setChecked(True)
+        self.unmute_sound_check.stateChanged.connect(self.save_config)
+        unmute_sound_layout.addWidget(self.unmute_sound_check)
+        unmute_sound_layout.addWidget(QLabel("Unmute:"))
         self.unmute_sound_edit = QLineEdit()
+        self.unmute_sound_edit.setFixedWidth(250)
         unmute_sound_layout.addWidget(self.unmute_sound_edit)
         unmute_browse_button = QPushButton("Browse")
         unmute_browse_button.clicked.connect(self.browse_unmute_sound)
         unmute_sound_layout.addWidget(unmute_browse_button)
-        unmute_clear_button = QPushButton("Clear")
-        unmute_clear_button.clicked.connect(self.clear_unmute_sound)
-        unmute_sound_layout.addWidget(unmute_clear_button)
         sound_frame.addLayout(unmute_sound_layout)
 
         apply_sound_button = QPushButton("Apply")
@@ -462,7 +474,7 @@ class MicMuteApp(QMainWindow):
         layout.addLayout(startup_frame)
 
         layout.addStretch()
-
+    
     def setup_tray_icon(self):
         self.muted_tray_icon = self.create_tray_icon("mute_icon.ico")
         self.unmuted_tray_icon = self.create_tray_icon("icon.ico")
@@ -520,139 +532,118 @@ class MicMuteApp(QMainWindow):
 
     def load_config(self):
         config_path = self.get_resource_path("config.json", writable=True)
+        bundled_config_path = self.get_resource_path("config.json")
         default_mute_sound = self.get_resource_path(os.path.join("resource", "_mute.wav"))
         default_unmute_sound = self.get_resource_path(os.path.join("resource", "_unmute.wav"))
         default_hotkey = "ctrl+alt+m"
+        default_config = {
+            "overlay_position": "Top Mid",
+            "overlay_size": 48,
+            "overlay_margin": 10,
+            "overlay_opacity": 0.7,
+            "mute_sound_file": default_mute_sound,
+            "unmute_sound_file": default_unmute_sound,
+            "mute_sound_enabled": True,
+            "unmute_sound_enabled": True,
+            "start_minimized": False,
+            "start_with_windows": False,
+            "hotkey": default_hotkey
+        }
+
+        config = default_config
         try:
+            # Try loading from user config path first
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
-                    mute_sound = config.get("mute_sound_file", default_mute_sound)
-                    unmute_sound = config.get("unmute_sound_file", default_unmute_sound)
-                    # Ensure sound files exist, else use defaults
-                    if not os.path.exists(mute_sound):
-                        print(f"[WARNING] Mute sound file {mute_sound} not found, using default")
-                        mute_sound = default_mute_sound
-                    if not os.path.exists(unmute_sound):
-                        print(f"[WARNING] Unmute sound file {unmute_sound} not found, using default")
-                        unmute_sound = default_unmute_sound
-                    self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
-                    self.size_edit.setText(str(config.get("overlay_size", 48)))
-                    self.margin_edit.setText(str(config.get("overlay_margin", 10)))
-                    self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
-                    self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
-                    self.mute_sound_edit.setText(mute_sound)
-                    self.unmute_sound_edit.setText(unmute_sound)
-                    self.start_minimized_check.setChecked(config.get("start_minimized", False))
-                    self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
-                    loaded_hotkey = config.get("hotkey", default_hotkey)
-                    if loaded_hotkey != self.current_hotkey:
-                        try:
-                            if hasattr(self, 'hotkey_hook'):
-                                keyboard.unhook(self.hotkey_hook)
-                            def check_hotkey(event):
-                                keys = loaded_hotkey.split('+')
-                                all_pressed = all(is_pressed(key.strip()) for key in keys)
-                                if all_pressed and not self.is_toggling:
-                                    self.trigger_toggle_mute.emit()
-                            self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
-                            self.current_hotkey = loaded_hotkey
-                            self.hotkey_display.setText(loaded_hotkey)
-                            print(f"Loaded hotkey hook: {loaded_hotkey}")
-                        except Exception as e:
-                            print(f"Error setting loaded hotkey hook '{loaded_hotkey}': {str(e)}")
-                            if hasattr(self, 'hotkey_hook'):
-                                keyboard.unhook(self.hotkey_hook)
-                            def check_default_hotkey(event):
-                                keys = default_hotkey.split('+')
-                                all_pressed = all(is_pressed(key.strip()) for key in keys)
-                                if all_pressed and not self.is_toggling:
-                                    self.trigger_toggle_mute.emit()
-                            self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
-                            self.current_hotkey = default_hotkey
-                            self.hotkey_display.setText(default_hotkey)
-                            print(f"Fell back to default hotkey hook: {default_hotkey}")
-                    print(f"Loaded config from {config_path}")
+                    # Merge with defaults to ensure all keys exist
+                    for key, value in default_config.items():
+                        config.setdefault(key, value)
+                    print(f"[INFO] Loaded config from {config_path}")
+            # Fallback to bundled config if user config doesn't exist
+            elif os.path.exists(bundled_config_path):
+                with open(bundled_config_path, 'r') as f:
+                    config = json.load(f)
+                    # Merge with defaults
+                    for key, value in default_config.items():
+                        config.setdefault(key, value)
+                    print(f"[INFO] Loaded bundled config from {bundled_config_path}")
             else:
-                bundled_config_path = self.get_resource_path("config.json")
-                if os.path.exists(bundled_config_path):
-                    with open(bundled_config_path, 'r') as f:
-                        config = json.load(f)
-                        mute_sound = config.get("mute_sound_file", default_mute_sound)
-                        unmute_sound = config.get("unmute_sound_file", default_unmute_sound)
-                        # Ensure sound files exist, else use defaults
-                        if not os.path.exists(mute_sound):
-                            print(f"[WARNING] Bundled mute sound file {mute_sound} not found, using default")
-                            mute_sound = default_mute_sound
-                        if not os.path.exists(unmute_sound):
-                            print(f"[WARNING] Bundled unmute sound file {unmute_sound} not found, using default")
-                            unmute_sound = default_unmute_sound
-                        self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
-                        self.size_edit.setText(str(config.get("overlay_size", 48)))
-                        self.margin_edit.setText(str(config.get("overlay_margin", 10)))
-                        self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
-                        self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
-                        self.mute_sound_edit.setText(mute_sound)
-                        self.unmute_sound_edit.setText(unmute_sound)
-                        self.start_minimized_check.setChecked(config.get("start_minimized", False))
-                        self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
-                        loaded_hotkey = config.get("hotkey", default_hotkey)
-                        if loaded_hotkey != self.current_hotkey:
-                            try:
-                                if hasattr(self, 'hotkey_hook'):
-                                    keyboard.unhook(self.hotkey_hook)
-                                def check_hotkey(event):
-                                    keys = loaded_hotkey.split('+')
-                                    all_pressed = all(is_pressed(key.strip()) for key in keys)
-                                    if all_pressed and not self.is_toggling:
-                                        self.trigger_toggle_mute.emit()
-                                self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
-                                self.current_hotkey = loaded_hotkey
-                                self.hotkey_display.setText(loaded_hotkey)
-                                print(f"Loaded hotkey from bundled config: {loaded_hotkey}")
-                            except Exception as e:
-                                print(f"Error setting bundled hotkey hook '{loaded_hotkey}': {str(e)}")
-                                if hasattr(self, 'hotkey_hook'):
-                                    keyboard.unhook(self.hotkey_hook)
-                                def check_default_hotkey(event):
-                                    keys = default_hotkey.split('+')
-                                    all_pressed = all(is_pressed(key.strip()) for key in keys)
-                                    if all_pressed and not self.is_toggling:
-                                        self.trigger_toggle_mute.emit()
-                                self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
-                                self.current_hotkey = default_hotkey
-                                self.hotkey_display.setText(default_hotkey)
-                                print(f"Fell back to default hotkey hook: {default_hotkey}")
-                    print(f"Loaded bundled config from {bundled_config_path}")
-                else:
-                    self.mute_sound_edit.setText(default_mute_sound)
-                    self.unmute_sound_edit.setText(default_unmute_sound)
-                    self.start_minimized_check.setChecked(False)
-                    self.start_with_windows_check.setChecked(False)
+                print(f"[INFO] No config found, using defaults")
+
+            # Validate sound file paths
+            mute_sound = config.get("mute_sound_file", default_mute_sound)
+            unmute_sound = config.get("unmute_sound_file", default_unmute_sound)
+            if not mute_sound or not os.path.exists(mute_sound):
+                print(f"[WARNING] Mute sound file {mute_sound} not found, using default")
+                mute_sound = default_mute_sound
+            if not unmute_sound or not os.path.exists(unmute_sound):
+                print(f"[WARNING] Unmute sound file {unmute_sound} not found, using default")
+                unmute_sound = default_unmute_sound
+
+            # Apply config to GUI
+            self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
+            self.size_edit.setText(str(config.get("overlay_size", 48)))
+            self.margin_edit.setText(str(config.get("overlay_margin", 10)))
+            self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
+            self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
+            self.mute_sound_edit.setText(mute_sound)
+            self.unmute_sound_edit.setText(unmute_sound)
+            self.mute_sound_check.setChecked(config.get("mute_sound_enabled", True))
+            self.unmute_sound_check.setChecked(config.get("unmute_sound_enabled", True))
+            self.start_minimized_check.setChecked(config.get("start_minimized", False))
+            self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
+
+            # Apply hotkey
+            loaded_hotkey = config.get("hotkey", default_hotkey)
+            if loaded_hotkey != self.current_hotkey:
+                try:
+                    if hasattr(self, 'hotkey_hook'):
+                        keyboard.unhook(self.hotkey_hook)
+                    def check_hotkey(event):
+                        keys = loaded_hotkey.split('+')
+                        all_pressed = all(is_pressed(key.strip()) for key in keys)
+                        if all_pressed and not self.is_toggling:
+                            self.trigger_toggle_mute.emit()
+                    self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
+                    self.current_hotkey = loaded_hotkey
+                    self.hotkey_display.setText(loaded_hotkey)
+                    print(f"[INFO] Loaded hotkey hook: {loaded_hotkey}")
+                except Exception as e:
+                    print(f"[ERROR] Error setting loaded hotkey hook '{loaded_hotkey}': {str(e)}")
+                    # Fallback to default hotkey
+                    if hasattr(self, 'hotkey_hook'):
+                        keyboard.unhook(self.hotkey_hook)
+                    def check_default_hotkey(event):
+                        keys = default_hotkey.split('+')
+                        all_pressed = all(is_pressed(key.strip()) for key in keys)
+                        if all_pressed and not self.is_toggling:
+                            self.trigger_toggle_mute.emit()
+                    self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
                     self.current_hotkey = default_hotkey
                     self.hotkey_display.setText(default_hotkey)
-                    try:
-                        if hasattr(self, 'hotkey_hook'):
-                            keyboard.unhook(self.hotkey_hook)
-                        def check_default_hotkey(event):
-                            keys = default_hotkey.split('+')
-                            all_pressed = all(is_pressed(key.strip()) for key in keys)
-                            if all_pressed and not self.is_toggling:
-                                self.trigger_toggle_mute.emit()
-                        self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
-                        print(f"Set default hotkey hook: {self.current_hotkey}")
-                    except Exception as e:
-                        print(f"Error setting default hotkey hook: {str(e)}")
-                    self.save_config()
-            self.toggle_windows_startup()
-            self.apply_sounds()  # Apply sounds after loading config
+                    print(f"[INFO] Fell back to default hotkey hook: {default_hotkey}")
+
+            # Save config to ensure user config exists with defaults
+            self.save_config()
+            self.apply_sounds()
             self.update_overlay()
+            self.toggle_windows_startup()
+            print(f"[INFO] Configuration loaded and applied successfully")
         except Exception as e:
-            print(f"Error loading config: {str(e)}")
+            print(f"[ERROR] Error loading config: {str(e)}")
+            # Apply default settings
+            self.position_combo.setCurrentText(default_config["overlay_position"])
+            self.size_edit.setText(str(default_config["overlay_size"]))
+            self.margin_edit.setText(str(default_config["overlay_margin"]))
+            self.opacity_slider.setValue(int(default_config["overlay_opacity"] * 100))
+            self.opacity_label.setText(f"{default_config['overlay_opacity']:.2f}")
             self.mute_sound_edit.setText(default_mute_sound)
             self.unmute_sound_edit.setText(default_unmute_sound)
-            self.start_minimized_check.setChecked(False)
-            self.start_with_windows_check.setChecked(False)
+            self.mute_sound_check.setChecked(default_config["mute_sound_enabled"])
+            self.unmute_sound_check.setChecked(default_config["unmute_sound_enabled"])
+            self.start_minimized_check.setChecked(default_config["start_minimized"])
+            self.start_with_windows_check.setChecked(default_config["start_with_windows"])
             self.current_hotkey = default_hotkey
             self.hotkey_display.setText(default_hotkey)
             try:
@@ -664,12 +655,15 @@ class MicMuteApp(QMainWindow):
                     if all_pressed and not self.is_toggling:
                         self.trigger_toggle_mute.emit()
                 self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
-                print(f"Set default hotkey hook after error: {self.current_hotkey}")
+                print(f"[INFO] Set default hotkey hook after error: {self.current_hotkey}")
             except Exception as e:
-                print(f"Error setting default hotkey hook after config load failure: {str(e)}")
+                print(f"[ERROR] Error setting default hotkey hook after config load failure: {str(e)}")
             self.save_config()
-            self.apply_sounds()  # Apply default sounds after error
-
+            self.apply_sounds()
+            self.update_overlay()
+            self.toggle_windows_startup()
+            print(f"[INFO] Applied default configuration due to load error")
+    
     def save_config(self):
         config_path = self.get_resource_path("config.json", writable=True)
         try:
@@ -680,6 +674,8 @@ class MicMuteApp(QMainWindow):
                 "overlay_opacity": self.opacity_slider.value() / 100.0,
                 "mute_sound_file": self.mute_sound_edit.text(),
                 "unmute_sound_file": self.unmute_sound_edit.text(),
+                "mute_sound_enabled": self.mute_sound_check.isChecked(),
+                "unmute_sound_enabled": self.unmute_sound_check.isChecked(),
                 "start_minimized": self.start_minimized_check.isChecked(),
                 "start_with_windows": self.start_with_windows_check.isChecked(),
                 "hotkey": self.current_hotkey
@@ -815,14 +811,14 @@ class MicMuteApp(QMainWindow):
         self.unmute_sound = None
         mute_sound_path = self.mute_sound_edit.text().strip()
         unmute_sound_path = self.unmute_sound_edit.text().strip()
-        if mute_sound_path and os.path.exists(mute_sound_path):
+        if mute_sound_path and os.path.exists(mute_sound_path) and self.mute_sound_check.isChecked():
             try:
                 self.mute_sound = pygame.mixer.Sound(mute_sound_path)
                 print(f"Mute sound loaded from: {mute_sound_path}")
             except Exception as e:
                 print(f"Failed to load mute sound file: {str(e)}")
                 self.mute_sound = None
-        if unmute_sound_path and os.path.exists(unmute_sound_path):
+        if unmute_sound_path and os.path.exists(unmute_sound_path) and self.unmute_sound_check.isChecked():
             try:
                 self.unmute_sound = pygame.mixer.Sound(unmute_sound_path)
                 print(f"Unmute sound loaded from: {unmute_sound_path}")

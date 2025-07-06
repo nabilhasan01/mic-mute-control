@@ -5,6 +5,8 @@
     "overlay_opacity": 0.75,
     "mute_sound_file": "resource\\_mute.wav",
     "unmute_sound_file": "resource\\_unmute.wav",
+    "mute_sound_enabled": true,
+    "unmute_sound_enabled": true,
     "start_minimized": false,
     "start_with_windows": false,
     "hotkey": "alt+m"
