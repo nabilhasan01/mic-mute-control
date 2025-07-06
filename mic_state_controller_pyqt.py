@@ -13,7 +13,7 @@ import json
 import winreg
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QComboBox, QSlider, QLineEdit, QPushButton, QSystemTrayIcon, 
-                             QMenu, QFileDialog, QMessageBox)
+                             QMenu, QFileDialog, QMessageBox, QCheckBox)
 from PyQt6.QtGui import QIcon, QPainter, QImage, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
@@ -451,14 +451,14 @@ class MicMuteApp(QMainWindow):
         startup_label = QLabel("Startup Settings")
         startup_label.setStyleSheet("font-weight: bold;")
         startup_frame.addWidget(startup_label)
-        self.start_minimized_check = QPushButton("Start Minimized to Tray")
-        self.start_minimized_check.setCheckable(True)
-        self.start_minimized_check.clicked.connect(self.save_config)
-        startup_frame.addWidget(self.start_minimized_check)
-        self.start_with_windows_check = QPushButton("Start with Windows")
-        self.start_with_windows_check.setCheckable(True)
-        self.start_with_windows_check.clicked.connect(self.toggle_windows_startup)
-        startup_frame.addWidget(self.start_with_windows_check)
+        startup_check_layout = QHBoxLayout()
+        self.start_minimized_check = QCheckBox("Start Minimized to Tray")
+        self.start_minimized_check.stateChanged.connect(self.save_config)
+        startup_check_layout.addWidget(self.start_minimized_check)
+        self.start_with_windows_check = QCheckBox("Start with Windows")
+        self.start_with_windows_check.stateChanged.connect(self.toggle_windows_startup)
+        startup_check_layout.addWidget(self.start_with_windows_check)
+        startup_frame.addLayout(startup_check_layout)
         layout.addLayout(startup_frame)
 
         layout.addStretch()
