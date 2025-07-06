@@ -3,8 +3,8 @@
     "overlay_size": 40,
     "overlay_margin": 3,
     "overlay_opacity": 0.75,
-    "mute_sound_file": "C:/Users/Admin/Downloads/Music/discordmute_IZNcLx2.wav",
-    "unmute_sound_file": "C:/Users/Admin/Downloads/Music/discord-unmute-sound.wav",
+    "mute_sound_file": "resource\\_mute.wav",
+    "unmute_sound_file": "resource\\_unmute.wav",
     "start_minimized": false,
     "start_with_windows": false,
     "hotkey": "alt+m"
