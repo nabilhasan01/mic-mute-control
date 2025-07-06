@@ -359,11 +359,26 @@ class MicMuteApp(QMainWindow):
         hotkey_label = QLabel("Hotkey Settings")
         hotkey_label.setStyleSheet("font-weight: bold;")
         hotkey_frame.addWidget(hotkey_label)
-        self.hotkey_display = QLabel("ctrl+alt+m")
-        hotkey_frame.addWidget(self.hotkey_display)
+
+        # Horizontal layout for "Hotkey:" label, hotkey display, and Set Hotkey button
+        hotkey_input_layout = QHBoxLayout()
+        hotkey_input_layout.addWidget(QLabel("Hotkey:"))
+        self.hotkey_display = QLabel("Ctrl + Alt + M")
+        self.hotkey_display.setStyleSheet("""
+            border: 1px solid #333;
+            border-radius: 3px;
+            padding: 4px 8px;
+            background-color: #fafafa;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #000;
+        """)
+        hotkey_input_layout.addWidget(self.hotkey_display)
         self.set_hotkey_button = QPushButton("Set Hotkey")
         self.set_hotkey_button.clicked.connect(self.start_hotkey_capture)
-        hotkey_frame.addWidget(self.set_hotkey_button)
+        hotkey_input_layout.addWidget(self.set_hotkey_button)
+        hotkey_input_layout.addStretch()  # Align items to the left
+        hotkey_frame.addLayout(hotkey_input_layout)
         layout.addLayout(hotkey_frame)
 
         # Overlay settings
@@ -607,7 +622,9 @@ class MicMuteApp(QMainWindow):
                             self.trigger_toggle_mute.emit()
                     self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
                     self.current_hotkey = loaded_hotkey
-                    self.hotkey_display.setText(loaded_hotkey)
+                    # Format hotkey for display (e.g., "ctrl+alt+m" -> "Ctrl + Alt + M")
+                    display_hotkey = " + ".join(key.strip().capitalize() for key in loaded_hotkey.split('+'))
+                    self.hotkey_display.setText(display_hotkey)
                     print(f"[INFO] Loaded hotkey hook: {loaded_hotkey}")
                 except Exception as e:
                     print(f"[ERROR] Error setting loaded hotkey hook '{loaded_hotkey}': {str(e)}")
@@ -621,7 +638,9 @@ class MicMuteApp(QMainWindow):
                             self.trigger_toggle_mute.emit()
                     self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
                     self.current_hotkey = default_hotkey
-                    self.hotkey_display.setText(default_hotkey)
+                    # Format default hotkey for display
+                    display_default_hotkey = " + ".join(key.strip().capitalize() for key in default_hotkey.split('+'))
+                    self.hotkey_display.setText(display_default_hotkey)
                     print(f"[INFO] Fell back to default hotkey hook: {default_hotkey}")
 
             # Save config to ensure user config exists with defaults
@@ -770,7 +789,9 @@ class MicMuteApp(QMainWindow):
             
             self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
             self.current_hotkey = new_hotkey
-            self.hotkey_display.setText(new_hotkey)
+            # Format hotkey for display (e.g., "ctrl+alt+m" -> "Ctrl + Alt + M")
+            display_hotkey = " + ".join(key.strip().capitalize() for key in new_hotkey.split('+'))
+            self.hotkey_display.setText(display_hotkey)
             self.save_config()
             print(f"[HotkeyWorker] New hotkey hook set: {new_hotkey}")
         except Exception as e:
