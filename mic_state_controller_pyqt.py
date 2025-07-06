@@ -400,7 +400,7 @@ class MicMuteApp(QMainWindow):
         self.opacity_slider.setValue(70)
         self.opacity_slider.valueChanged.connect(self.update_opacity)
         opacity_layout.addWidget(self.opacity_slider)
-        self.opacity_label = QLabel("0.7")
+        self.opacity_label = QLabel("0.70")
         opacity_layout.addWidget(self.opacity_label)
         overlay_frame.addLayout(opacity_layout)
 
@@ -520,7 +520,7 @@ class MicMuteApp(QMainWindow):
                     self.size_edit.setText(str(config.get("overlay_size", 48)))
                     self.margin_edit.setText(str(config.get("overlay_margin", 10)))
                     self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
-                    self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.1f}")
+                    self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
                     self.mute_sound_edit.setText(config.get("mute_sound_file", default_mute_sound))
                     self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
                     self.start_minimized_check.setChecked(config.get("start_minimized", False))
@@ -706,10 +706,10 @@ class MicMuteApp(QMainWindow):
     def update_opacity(self, value):
         try:
             opacity = value / 100.0
-            self.opacity_label.setText(f"{opacity:.1f}")
+            self.opacity_label.setText(f"{opacity:.2f}")
             if self.overlay:
                 self.overlay.setWindowOpacity(opacity)
-                print(f"Overlay opacity set to: {opacity}")
+                print(f"Overlay opacity set to: {opacity:.2f}")
             self.save_config()
         except Exception as e:
             print(f"Error updating overlay opacity: {str(e)}")
