@@ -78,7 +78,7 @@ class MicMuteApp(QMainWindow):
             print(f"[ERROR] Window icon file {icon_path} not found")
 
         self.setWindowTitle("Microphone Mute Control")
-        self.setFixedWidth(400)
+        self.setFixedWidth(450)
         self.setMinimumHeight(600)
 
         # Initialize COM
@@ -248,6 +248,11 @@ class MicMuteApp(QMainWindow):
 
         sound = self.mute_sound if is_muted else self.unmute_sound
         sound_path = self.mute_sound_edit.text().strip() if is_muted else self.unmute_sound_edit.text().strip()
+
+        # Skip playback if sound path is empty
+        if not sound_path:
+            print(f"[INFO] No {'mute' if is_muted else 'unmute'} sound file specified, skipping playback")
+            return
 
         if sound is None and sound_path and os.path.exists(sound_path):
             try:
@@ -419,6 +424,9 @@ class MicMuteApp(QMainWindow):
         mute_browse_button = QPushButton("Browse")
         mute_browse_button.clicked.connect(self.browse_mute_sound)
         mute_sound_layout.addWidget(mute_browse_button)
+        mute_clear_button = QPushButton("Clear")
+        mute_clear_button.clicked.connect(self.clear_mute_sound)
+        mute_sound_layout.addWidget(mute_clear_button)
         sound_frame.addLayout(mute_sound_layout)
 
         unmute_sound_layout = QHBoxLayout()
@@ -428,6 +436,9 @@ class MicMuteApp(QMainWindow):
         unmute_browse_button = QPushButton("Browse")
         unmute_browse_button.clicked.connect(self.browse_unmute_sound)
         unmute_sound_layout.addWidget(unmute_browse_button)
+        unmute_clear_button = QPushButton("Clear")
+        unmute_clear_button.clicked.connect(self.clear_unmute_sound)
+        unmute_sound_layout.addWidget(unmute_clear_button)
         sound_frame.addLayout(unmute_sound_layout)
 
         apply_sound_button = QPushButton("Apply")
@@ -516,13 +527,22 @@ class MicMuteApp(QMainWindow):
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
+                    mute_sound = config.get("mute_sound_file", default_mute_sound)
+                    unmute_sound = config.get("unmute_sound_file", default_unmute_sound)
+                    # Ensure sound files exist, else use defaults
+                    if not os.path.exists(mute_sound):
+                        print(f"[WARNING] Mute sound file {mute_sound} not found, using default")
+                        mute_sound = default_mute_sound
+                    if not os.path.exists(unmute_sound):
+                        print(f"[WARNING] Unmute sound file {unmute_sound} not found, using default")
+                        unmute_sound = default_unmute_sound
                     self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
                     self.size_edit.setText(str(config.get("overlay_size", 48)))
                     self.margin_edit.setText(str(config.get("overlay_margin", 10)))
                     self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
                     self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
-                    self.mute_sound_edit.setText(config.get("mute_sound_file", default_mute_sound))
-                    self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
+                    self.mute_sound_edit.setText(mute_sound)
+                    self.unmute_sound_edit.setText(unmute_sound)
                     self.start_minimized_check.setChecked(config.get("start_minimized", False))
                     self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
                     loaded_hotkey = config.get("hotkey", default_hotkey)
@@ -558,13 +578,22 @@ class MicMuteApp(QMainWindow):
                 if os.path.exists(bundled_config_path):
                     with open(bundled_config_path, 'r') as f:
                         config = json.load(f)
+                        mute_sound = config.get("mute_sound_file", default_mute_sound)
+                        unmute_sound = config.get("unmute_sound_file", default_unmute_sound)
+                        # Ensure sound files exist, else use defaults
+                        if not os.path.exists(mute_sound):
+                            print(f"[WARNING] Bundled mute sound file {mute_sound} not found, using default")
+                            mute_sound = default_mute_sound
+                        if not os.path.exists(unmute_sound):
+                            print(f"[WARNING] Bundled unmute sound file {unmute_sound} not found, using default")
+                            unmute_sound = default_unmute_sound
                         self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
-                        self.size_combo.setCurrentText(config.get("overlay_size", "48x48"))
+                        self.size_edit.setText(str(config.get("overlay_size", 48)))
                         self.margin_edit.setText(str(config.get("overlay_margin", 10)))
                         self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
-                        self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.1f}")
-                        self.mute_sound_edit.setText(config.get("mute_sound_file", default_mute_sound))
-                        self.unmute_sound_edit.setText(config.get("unmute_sound_file", default_unmute_sound))
+                        self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.2f}")
+                        self.mute_sound_edit.setText(mute_sound)
+                        self.unmute_sound_edit.setText(unmute_sound)
                         self.start_minimized_check.setChecked(config.get("start_minimized", False))
                         self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
                         loaded_hotkey = config.get("hotkey", default_hotkey)
@@ -616,6 +645,7 @@ class MicMuteApp(QMainWindow):
                         print(f"Error setting default hotkey hook: {str(e)}")
                     self.save_config()
             self.toggle_windows_startup()
+            self.apply_sounds()  # Apply sounds after loading config
             self.update_overlay()
         except Exception as e:
             print(f"Error loading config: {str(e)}")
@@ -638,6 +668,7 @@ class MicMuteApp(QMainWindow):
             except Exception as e:
                 print(f"Error setting default hotkey hook after config load failure: {str(e)}")
             self.save_config()
+            self.apply_sounds()  # Apply default sounds after error
 
     def save_config(self):
         config_path = self.get_resource_path("config.json", writable=True)
@@ -799,6 +830,20 @@ class MicMuteApp(QMainWindow):
                 print(f"Failed to load unmute sound file: {str(e)}")
                 self.unmute_sound = None
         self.save_config()
+
+    def clear_mute_sound(self):
+        """Clear the mute sound file path and reset the mute sound."""
+        self.mute_sound_edit.setText("")
+        self.mute_sound = None
+        self.save_config()
+        print("[INFO] Mute sound cleared")
+
+    def clear_unmute_sound(self):
+        """Clear the unmute sound file path and reset the unmute sound."""
+        self.unmute_sound_edit.setText("")
+        self.unmute_sound = None
+        self.save_config()
+        print("[INFO] Unmute sound cleared")
 
     def get_resource_path(self, relative_path, writable=False):
         try:
