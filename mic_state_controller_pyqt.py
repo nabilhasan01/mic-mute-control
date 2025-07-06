@@ -299,6 +299,21 @@ class MicMuteApp(QMainWindow):
                     self.volume = None
             self.timer.start(100)
 
+    def update_size(self):
+        try:
+            size = int(self.size_edit.text().strip())
+            if 16 <= size <= 128:
+                self.update_overlay()
+                self.save_config()
+            else:
+                QMessageBox.critical(self, "Error", "Size must be between 16 and 128 pixels")
+                self.size_edit.setText("48")
+                self.update_overlay()
+        except ValueError:
+            QMessageBox.critical(self, "Error", "Size must be a number")
+            self.size_edit.setText("48")
+            self.update_overlay()
+    
     def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -356,13 +371,15 @@ class MicMuteApp(QMainWindow):
         position_layout.addWidget(self.position_combo)
         overlay_frame.addLayout(position_layout)
 
+        # Overlay Size
         size_layout = QHBoxLayout()
         size_layout.addWidget(QLabel("Size:"))
-        self.size_combo = QComboBox()
-        self.size_combo.addItems(["32x32", "48x48", "64x64"])
-        self.size_combo.setCurrentText("48x48")
-        self.size_combo.currentTextChanged.connect(self.update_overlay_size)
-        size_layout.addWidget(self.size_combo)
+        self.size_edit = QLineEdit("48")
+        self.size_edit.setFixedWidth(50)
+        size_layout.addWidget(self.size_edit)
+        size_button = QPushButton("Set")
+        size_button.clicked.connect(self.update_size)
+        size_layout.addWidget(size_button)
         overlay_frame.addLayout(size_layout)
 
         margin_layout = QHBoxLayout()
@@ -477,7 +494,7 @@ class MicMuteApp(QMainWindow):
             margin = 0
         self.overlay = OverlayWidget(
             self.svg_code,
-            self.size_combo.currentText(),
+            str(self.size_edit.text().strip() or "48"),
             self.opacity_slider.value() / 100.0,
             self.position_combo.currentText(),
             margin,
@@ -500,7 +517,7 @@ class MicMuteApp(QMainWindow):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
                     self.position_combo.setCurrentText(config.get("overlay_position", "Top Mid"))
-                    self.size_combo.setCurrentText(config.get("overlay_size", "48x48"))
+                    self.size_edit.setText(str(config.get("overlay_size", 48)))
                     self.margin_edit.setText(str(config.get("overlay_margin", 10)))
                     self.opacity_slider.setValue(int(config.get("overlay_opacity", 0.7) * 100))
                     self.opacity_label.setText(f"{self.opacity_slider.value() / 100:.1f}")
@@ -627,7 +644,7 @@ class MicMuteApp(QMainWindow):
         try:
             config = {
                 "overlay_position": self.position_combo.currentText(),
-                "overlay_size": self.size_combo.currentText(),
+                "overlay_size": int(self.size_edit.text().strip() or 48),
                 "overlay_margin": int(self.margin_edit.text() or 0),
                 "overlay_opacity": self.opacity_slider.value() / 100.0,
                 "mute_sound_file": self.mute_sound_edit.text(),
