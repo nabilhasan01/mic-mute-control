@@ -1,11 +1,11 @@
 {
-    "overlay_position": "Top Mid",
-    "overlay_size": 24,
-    "overlay_margin": 5,
-    "overlay_opacity": 1.0,
+    "overlay_position": "Middle Left",
+    "overlay_size": 40,
+    "overlay_margin": 3,
+    "overlay_opacity": 0.75,
     "mute_sound_file": "C:/Users/Admin/Downloads/Music/discordmute_IZNcLx2.wav",
     "unmute_sound_file": "C:/Users/Admin/Downloads/Music/discord-unmute-sound.wav",
-    "start_minimized": true,
-    "start_with_windows": true,
-    "hotkey": "pause"
+    "start_minimized": false,
+    "start_with_windows": false,
+    "hotkey": "alt+m"
 }
