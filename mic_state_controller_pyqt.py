@@ -79,7 +79,7 @@ class MicMuteApp(QMainWindow):
 
         self.setWindowTitle("Microphone Mute Control")
         self.setFixedWidth(450)
-        self.setFixedHeight(560)
+        self.setFixedHeight(600)  # Increased height to accommodate new auto-refresh settings
 
         # Initialize COM
         pythoncom.CoInitialize()
@@ -98,6 +98,11 @@ class MicMuteApp(QMainWindow):
         self.debounce_timer.setSingleShot(True)
         self.debounce_timer.timeout.connect(self.process_pending_toggle)
         self.debounce_interval = 100  # ms
+
+        # Initialize auto-refresh timer
+        self.auto_refresh_timer = QTimer()
+        self.auto_refresh_timer.timeout.connect(lambda: self.refresh_device(manual=False))
+        self.auto_refresh_interval = 5000  # Default 5 seconds
 
         # Connect signals
         self.trigger_toggle_mute.connect(self.queue_toggle, Qt.ConnectionType.QueuedConnection)
@@ -132,7 +137,7 @@ class MicMuteApp(QMainWindow):
             self.show()
         else:
             self.hide()
-
+    
     def queue_toggle(self):
         """Queue a toggle request with debouncing."""
         if self.is_toggling or self.debounce_timer.isActive():
@@ -347,7 +352,7 @@ class MicMuteApp(QMainWindow):
         self.toggle_button.clicked.connect(self.queue_toggle)
         button_layout.addWidget(self.toggle_button)
         self.refresh_button = QPushButton("Refresh Device")
-        self.refresh_button.clicked.connect(self.refresh_device)
+        self.refresh_button.clicked.connect(lambda: self.refresh_device(manual=True))
         button_layout.addWidget(self.refresh_button)
         self.minimize_button = QPushButton("Minimize to Tray")
         self.minimize_button.clicked.connect(self.hide)
@@ -473,6 +478,26 @@ class MicMuteApp(QMainWindow):
         sound_frame.addWidget(apply_sound_button)
         layout.addLayout(sound_frame)
 
+        # Auto-refresh settings
+        auto_refresh_frame = QVBoxLayout()
+        auto_refresh_label = QLabel("Auto-Refresh Settings")
+        auto_refresh_label.setStyleSheet("font-weight: bold;")
+        auto_refresh_frame.addWidget(auto_refresh_label)
+        
+        auto_refresh_layout = QHBoxLayout()
+        self.auto_refresh_check = QCheckBox("Enable Auto-Refresh")
+        self.auto_refresh_check.stateChanged.connect(self.toggle_auto_refresh)
+        auto_refresh_layout.addWidget(self.auto_refresh_check)
+        auto_refresh_layout.addWidget(QLabel("Interval (s):"))
+        self.auto_refresh_interval_edit = QLineEdit("5")
+        self.auto_refresh_interval_edit.setFixedWidth(60)
+        auto_refresh_interval_button = QPushButton("Set")
+        auto_refresh_interval_button.clicked.connect(self.update_auto_refresh_interval)
+        auto_refresh_layout.addWidget(self.auto_refresh_interval_edit)
+        auto_refresh_layout.addWidget(auto_refresh_interval_button)
+        auto_refresh_frame.addLayout(auto_refresh_layout)
+        layout.addLayout(auto_refresh_frame)
+
         # Startup settings
         startup_frame = QVBoxLayout()
         startup_label = QLabel("Startup Settings")
@@ -562,7 +587,9 @@ class MicMuteApp(QMainWindow):
             "unmute_sound_enabled": True,
             "start_minimized": False,
             "start_with_windows": False,
-            "hotkey": default_hotkey
+            "hotkey": default_hotkey,
+            "auto_refresh_enabled": False,
+            "auto_refresh_interval": 5
         }
 
         config = default_config
@@ -608,6 +635,8 @@ class MicMuteApp(QMainWindow):
             self.unmute_sound_check.setChecked(config.get("unmute_sound_enabled", True))
             self.start_minimized_check.setChecked(config.get("start_minimized", False))
             self.start_with_windows_check.setChecked(config.get("start_with_windows", False))
+            self.auto_refresh_check.setChecked(config.get("auto_refresh_enabled", False))
+            self.auto_refresh_interval_edit.setText(str(config.get("auto_refresh_interval", 5)))
 
             # Apply hotkey
             loaded_hotkey = config.get("hotkey", default_hotkey)
@@ -622,7 +651,7 @@ class MicMuteApp(QMainWindow):
                             self.trigger_toggle_mute.emit()
                     self.hotkey_hook = keyboard.hook(check_hotkey, suppress=False)
                     self.current_hotkey = loaded_hotkey
-                    # Format hotkey for display (e.g., "ctrl+alt+m" -> "Ctrl + Alt + M")
+                    # Format hotkey for display
                     display_hotkey = " + ".join(key.strip().capitalize() for key in loaded_hotkey.split('+'))
                     self.hotkey_display.setText(display_hotkey)
                     print(f"[INFO] Loaded hotkey hook: {loaded_hotkey}")
@@ -638,10 +667,18 @@ class MicMuteApp(QMainWindow):
                             self.trigger_toggle_mute.emit()
                     self.hotkey_hook = keyboard.hook(check_default_hotkey, suppress=False)
                     self.current_hotkey = default_hotkey
-                    # Format default hotkey for display
                     display_default_hotkey = " + ".join(key.strip().capitalize() for key in default_hotkey.split('+'))
                     self.hotkey_display.setText(display_default_hotkey)
                     print(f"[INFO] Fell back to default hotkey hook: {default_hotkey}")
+
+            # Apply auto-refresh settings
+            self.auto_refresh_interval = config.get("auto_refresh_interval", 5)
+            if config.get("auto_refresh_enabled", False):
+                self.auto_refresh_timer.start(self.auto_refresh_interval * 1000)  # Convert seconds to milliseconds
+                print(f"[INFO] Auto-refresh enabled with interval {self.auto_refresh_interval} s")
+            else:
+                self.auto_refresh_timer.stop()
+                print(f"[INFO] Auto-refresh disabled")
 
             # Save config to ensure user config exists with defaults
             self.save_config()
@@ -663,6 +700,8 @@ class MicMuteApp(QMainWindow):
             self.unmute_sound_check.setChecked(default_config["unmute_sound_enabled"])
             self.start_minimized_check.setChecked(default_config["start_minimized"])
             self.start_with_windows_check.setChecked(default_config["start_with_windows"])
+            self.auto_refresh_check.setChecked(default_config["auto_refresh_enabled"])
+            self.auto_refresh_interval_edit.setText(str(default_config["auto_refresh_interval"]))
             self.current_hotkey = default_hotkey
             self.hotkey_display.setText(default_hotkey)
             try:
@@ -697,14 +736,16 @@ class MicMuteApp(QMainWindow):
                 "unmute_sound_enabled": self.unmute_sound_check.isChecked(),
                 "start_minimized": self.start_minimized_check.isChecked(),
                 "start_with_windows": self.start_with_windows_check.isChecked(),
-                "hotkey": self.current_hotkey
+                "hotkey": self.current_hotkey,
+                "auto_refresh_enabled": self.auto_refresh_check.isChecked(),
+                "auto_refresh_interval": int(self.auto_refresh_interval_edit.text().strip() or 5)
             }
             with open(config_path, 'w') as f:
                 json.dump(config, f, indent=4)
             print(f"Saved config to {config_path}")
         except Exception as e:
             print(f"Error saving config: {str(e)}")
-
+    
     def toggle_windows_startup(self):
         try:
             key = winreg.HKEY_CURRENT_USER
@@ -808,14 +849,49 @@ class MicMuteApp(QMainWindow):
         self.timer.timeout.connect(self.poll_mute_state)
         self.timer.start(100)
 
-    def refresh_device(self):
+    def refresh_device(self, manual=True):
         try:
             self.initialize_audio_device()
             self.update_status()
             print("Microphone device refreshed")
-            QMessageBox.information(self, "Success", "Microphone device refreshed successfully")
+            if manual:
+                QMessageBox.information(self, "Success", "Microphone device refreshed successfully")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to refresh audio device: {str(e)}")
+            print(f"[ERROR] Failed to refresh audio device: {str(e)}")
+            if manual:
+                QMessageBox.critical(self, "Error", f"Failed to refresh audio device: {str(e)}")
+
+    def toggle_auto_refresh(self):
+        try:
+            if self.auto_refresh_check.isChecked():
+                self.update_auto_refresh_interval()
+                self.refresh_device(manual=False)  # Trigger immediate refresh without popup
+                print(f"[INFO] Auto-refresh enabled with interval {self.auto_refresh_interval} ms")
+            else:
+                self.auto_refresh_timer.stop()
+                print("[INFO] Auto-refresh disabled")
+            self.save_config()
+        except Exception as e:
+            print(f"[ERROR] Error toggling auto-refresh: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to toggle auto-refresh: {str(e)}")
+
+    def update_auto_refresh_interval(self):
+        try:
+            interval = int(self.auto_refresh_interval_edit.text().strip() or 5)
+            if 1 <= interval <= 60:  # Limit between 1 and 60 seconds
+                self.auto_refresh_interval = interval
+                if self.auto_refresh_check.isChecked():
+                    self.auto_refresh_timer.start(self.auto_refresh_interval * 1000)  # Convert seconds to milliseconds
+                    self.refresh_device(manual=False)  # Trigger immediate refresh without popup
+                    print(f"[INFO] Auto-refresh interval set to {self.auto_refresh_interval} s")
+                self.save_config()
+            else:
+                QMessageBox.critical(self, "Error", "Interval must be between 1 and 60 seconds")
+                self.auto_refresh_interval_edit.setText(str(self.auto_refresh_interval))
+        except ValueError:
+            QMessageBox.critical(self, "Error", "Interval must be a number")
+            self.auto_refresh_interval_edit.setText(str(self.auto_refresh_interval))
+        self.save_config()
 
     def browse_mute_sound(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Mute Sound", "", "WAV files (*.wav)")

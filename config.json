@@ -1,13 +1,15 @@
 {
     "overlay_position": "Top Mid",
-    "overlay_size": 40,
-    "overlay_margin": 3,
-    "overlay_opacity": 0.75,
+    "overlay_size": 48,
+    "overlay_margin": 10,
+    "overlay_opacity": 0.7,
     "mute_sound_file": "resource\\_mute.wav",
     "unmute_sound_file": "resource\\_unmute.wav",
     "mute_sound_enabled": true,
     "unmute_sound_enabled": true,
     "start_minimized": false,
     "start_with_windows": false,
-    "hotkey": "alt+m"
+    "hotkey": "ctrl+alt+m",
+    "auto_refresh_enabled": false,
+    "auto_refresh_interval": 5
 }
