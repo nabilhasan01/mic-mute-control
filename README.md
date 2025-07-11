@@ -11,7 +11,7 @@ A lightweight Windows application to toggle microphone mute status with a custom
 - **External Mute Detection**: Polls every 100ms (PyQt6) or 500ms (Tkinter) to detect mute/unmute changes from other sources (e.g., keyboard mute key).
 - **Sound Feedback**: Play custom WAV files or bundled default sounds (`_mute.wav` for mute, `_unmute.wav` for unmute) on mute/unmute (configurable via GUI). Falls back to a default beep if custom sounds fail (Tkinter only).
 - **Start Minimized**: Launches directly to the system tray, with the GUI hidden until requested.
-- **Start with Windows**: Option to add the application to Windows startup for automatic launching.
+- **Start with Windows**: Option to add the application to Windows startup for automatic launching, with proper handling of spaces in file paths (PyQt6).
 - **Auto-Refresh**: Configurable auto-refresh for audio device reinitialization (default: 5 seconds, 1-60 seconds range).
 - **Cross-Resolution Support**: Overlay dynamically centers based on screen resolution (e.g., `x=936` for 1920x1080).
 - **Configuration Persistence**: Saves settings (overlay, sound, hotkey, startup, auto-refresh) to `~/.mic_mute_app/config.json` for both script and executable, ensuring persistence across restarts.
@@ -20,6 +20,7 @@ A lightweight Windows application to toggle microphone mute status with a custom
   - Debounced toggle mechanism to prevent rapid successive toggles (100ms debounce interval).
   - Mutex-based synchronization for safe audio operations.
   - Retry logic for audio device initialization and mute toggling (up to 3 attempts).
+  - Proper handling of paths with spaces in Windows startup registry entries.
 
 ## Requirements
 - Windows 10/11 (64-bit).
@@ -73,7 +74,7 @@ A lightweight Windows application to toggle microphone mute status with a custom
    - Triggers periodic audio device reinitialization.
 7. **Configure Startup**:
    - Enable "Start Minimized to Tray" to launch directly to the system tray.
-   - Enable "Start with Windows" to add the app to Windows startup.
+   - Enable "Start with Windows" to add the app to Windows startup (PyQt6 version properly handles paths with spaces).
 8. **Exit**:
    - Right-click tray icon, select "Exit".
 
@@ -97,7 +98,7 @@ To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_u
      ```bash
      --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen"
      ```
-3. Find `Microphone Mute Control Tkinter.exe` or `Microphone Mute Control PyQt.exe` in the `dist` folder.
+3. Find `Microphone Mute Control Tkinter.exe` or `MicCTRL.exe` in the `dist` folder.
 4. Share the `.exe` (run as administrator on other PCs).
 
 ### Manual PyInstaller Command (Alternative)
@@ -144,7 +145,7 @@ If you prefer to build manually, use the appropriate command:
     --add-data "config.json;." ^
     --uac-admin ^
     --icon=resource\icon.ico ^
-    --name "Microphone Mute Control PyQt" ^
+    --name "MicCTRL" ^
     mic_state_controller_pyqt.py
   ```
 - For Windows, use semicolons (`;`) as separators in `--add-binary` and `--add-data`. For Unix-like systems, use colons (`:`).
@@ -186,6 +187,9 @@ If you prefer to build manually, use the appropriate command:
 - **Auto-Refresh Issues**:
   - Ensure interval is between 1-60 seconds.
   - Check console for "Auto-refresh enabled with interval X s" or errors during refresh.
+- **Windows Startup Issues (PyQt6)**:
+  - Ensure the executable path is correctly quoted in the registry to handle spaces.
+  - Verify registry entry in `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run` under the key `MicMuteApp`.
 
 ## Contributing
 Fork the repository, make changes, and submit a pull request. Issues and feature requests are welcome!
