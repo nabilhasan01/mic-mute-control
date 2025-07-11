@@ -747,25 +747,32 @@ class MicMuteApp(QMainWindow):
             print(f"Error saving config: {str(e)}")
     
     def toggle_windows_startup(self):
+        """Toggle Windows startup by adding/removing a registry entry in HKEY_LOCAL_MACHINE to run MicCTRL.exe with admin privileges, handling spaces in the path."""
         try:
-            key = winreg.HKEY_CURRENT_USER
-            sub_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            registry_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
             app_name = "MicMuteApp"
             executable_path = os.path.abspath(sys.executable if hasattr(sys, '_MEIPASS') else __file__)
-            with winreg.OpenKey(key, sub_key, 0, winreg.KEY_SET_VALUE) as reg_key:
-                if self.start_with_windows_check.isChecked():
-                    winreg.SetValueEx(reg_key, app_name, 0, winreg.REG_SZ, f'"{executable_path}"')
-                    print(f"Added to Windows startup: {executable_path}")
-                else:
-                    try:
-                        winreg.DeleteValue(reg_key, app_name)
-                        print("Removed from Windows startup")
-                    except FileNotFoundError:
-                        print("App was not in Windows startup")
+            # Wrap the path in double quotes to handle spaces, no need for additional quote escaping
+            quoted_path = f'"{executable_path}"'
+            powershell_command = f'powershell -Command "Start-Process \'{quoted_path}\' -Verb RunAs"'
+
+            if self.start_with_windows_check.isChecked():
+                # Open registry key with write access
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_key, 0, winreg.KEY_SET_VALUE) as key:
+                    winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, powershell_command)
+                print(f"[INFO] Added registry entry for startup: {app_name} with command: {powershell_command}")
+            else:
+                # Open registry key with write access to delete entry
+                try:
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, registry_key, 0, winreg.KEY_SET_VALUE) as key:
+                        winreg.DeleteValue(key, app_name)
+                    print(f"[INFO] Removed registry entry for startup: {app_name}")
+                except FileNotFoundError:
+                    print(f"[INFO] No registry entry found for {app_name} to remove")
+            self.save_config()
         except Exception as e:
-            print(f"Error toggling Windows startup: {str(e)}")
+            print(f"[ERROR] Error toggling Windows startup: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to toggle Windows startup: {str(e)}")
-        self.save_config()
 
     def update_overlay_position(self, position):
         self.update_overlay()

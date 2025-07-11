@@ -9,10 +9,8 @@ if %ERRORLEVEL% neq 0 (
 set "BUILD_TYPE=%1"
 
 if "%BUILD_TYPE%"=="" (
-    echo Error: Please specify the build type: 'tkinter' or 'pyqt'
-    echo Usage: %0 [tkinter^|pyqt]
-    pause
-    exit /b 1
+    echo No build type specified, defaulting to 'pyqt'...
+    set "BUILD_TYPE=pyqt"
 )
 
 echo Building Microphone Mute Control executable with admin privileges for %BUILD_TYPE%...
@@ -21,7 +19,7 @@ if "%BUILD_TYPE%"=="tkinter" (
     set "EXE_NAME=Microphone Mute Control Tkinter"
     set "SCRIPT_NAME=mic_state_controller_tkinter.py"
 ) else if "%BUILD_TYPE%"=="pyqt" (
-    set "EXE_NAME=Microphone Mute Control PyQt"
+    set "EXE_NAME=MicCTRL"
     set "SCRIPT_NAME=mic_state_controller_pyqt.py"
 ) else (
     echo Error: Invalid build type '%BUILD_TYPE%'. Use 'tkinter' or 'pyqt'.
@@ -86,4 +84,15 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
+echo Cleaning up build artifacts...
+if exist "build" (
+    rmdir /s /q "build"
+    echo Build folder deleted.
+)
+if exist "%EXE_NAME%.spec" (
+    del "%EXE_NAME%.spec"
+    echo Spec file deleted.
+)
+
+echo Build completed successfully. Executable: dist\%EXE_NAME%.exe
 pause
