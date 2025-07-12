@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QTimer, QRectF, pyqtSignal, QObject, QThread, QMutex, QMutexLocker
+from PyQt6.QtCore import Qt, QTimer, QRectF, pyqtSignal, QObject, QThread, QMutex, QMutexLocker, QEvent
 import time
 import pythoncom
 from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
@@ -970,13 +970,28 @@ class MicMuteApp(QMainWindow):
         pythoncom.CoUninitialize()
         QApplication.quit()
 
+    def changeEvent(self, event):
+        """Handle window state changes, such as minimization."""
+        if event.type() == QEvent.Type.WindowStateChange and self.isMinimized() and self.start_minimized_check.isChecked():
+            self.hide()
+            print("[INFO] Window minimized to system tray")
+            event.accept()
+        else:
+            super().changeEvent(event)
+
     def closeEvent(self, event):
-        try:
-            if hasattr(self, 'hotkey_hook'):
-                keyboard.unhook(self.hotkey_hook)
-        except Exception as e:
-            print(f"Error removing hotkey hook: {str(e)}")
-        event.accept()
+        """Handle window close event, optionally minimizing to tray."""
+        if self.start_minimized_check.isChecked():
+            self.hide()
+            print("[INFO] Window closed to system tray")
+            event.ignore()
+        else:
+            try:
+                if hasattr(self, 'hotkey_hook'):
+                    keyboard.unhook(self.hotkey_hook)
+            except Exception as e:
+                print(f"Error removing hotkey hook: {str(e)}")
+            event.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
