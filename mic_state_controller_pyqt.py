@@ -110,7 +110,16 @@ class MicMuteApp(QMainWindow):
         self.setup_tray_icon()
         self.setup_overlay()
 
-        pygame.mixer.init()
+        self.mixer_initialized = False
+        try:
+            pygame.mixer.init()
+            self.mixer_initialized = True
+            print("[INFO] Pygame mixer initialized successfully")
+        except pygame.error as e:
+            print(f"[WARNING] Failed to initialize pygame mixer: {str(e)}. Sound feedback will be disabled.")
+            self.status_label.setText("Status: No audio output device (sound disabled)")
+            QMessageBox.warning(self, "Warning", "No audio output device found. Sound feedback is disabled.")
+        
         self.mute_sound = None
         self.unmute_sound = None
         self.last_mute_state = None
@@ -243,13 +252,9 @@ class MicMuteApp(QMainWindow):
 
     def play_sound(self, is_muted):
         """Play sound for mute/unmute with robust error handling."""
-        if not pygame.mixer.get_init():
-            try:
-                pygame.mixer.init()
-                print("[INFO] Pygame mixer reinitialized")
-            except Exception as e:
-                print(f"[ERROR] Failed to reinitialize pygame mixer: {str(e)}")
-                return
+        if not self.mixer_initialized:
+            print(f"[INFO] {'Mute' if is_muted else 'Unmute'} sound skipped: pygame mixer not initialized")
+            return
 
         # Check if sound is enabled
         sound_enabled = self.mute_sound_check.isChecked() if is_muted else self.unmute_sound_check.isChecked()
@@ -913,6 +918,15 @@ class MicMuteApp(QMainWindow):
     def apply_sounds(self):
         self.mute_sound = None
         self.unmute_sound = None
+        if not self.mixer_initialized:
+            print("[INFO] Sound application skipped: pygame mixer not initialized")
+            self.mute_sound_edit.setText("")
+            self.unmute_sound_edit.setText("")
+            self.mute_sound_check.setChecked(False)
+            self.unmute_sound_check.setChecked(False)
+            self.save_config()
+            return
+
         mute_sound_path = self.mute_sound_edit.text().strip()
         unmute_sound_path = self.unmute_sound_edit.text().strip()
         if mute_sound_path and os.path.exists(mute_sound_path) and self.mute_sound_check.isChecked():
