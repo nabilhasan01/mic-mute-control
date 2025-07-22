@@ -1,6 +1,6 @@
 # Microphone Mute Control
 
-A lightweight Windows application to toggle microphone mute status with a customizable hotkey, displaying a red microphone icon with a white slash in the top-middle of the screen when muted. Features a system tray icon, a GUI for hotkey and overlay customization, external mute detection, and customizable sound feedback with bundled default sounds. Available in two implementations: Tkinter (`mic_state_controller_tkinter.py`) and PyQt6 (`mic_state_controller_pyqt.py`).
+A lightweight Windows application to toggle microphone mute status with a customizable hotkey, displaying a red microphone icon with a white slash in the top-middle of the screen when muted. Features a system tray icon, a GUI for hotkey and overlay customization, external mute detection, customizable sound feedback with bundled default sounds, and single-instance enforcement. Available in two implementations: Tkinter (`mic_state_controller_tkinter.py`) and PyQt6 (`mic_state_controller_pyqt.py`).
 
 ## Features
 - **Toggle Mute**: Mute/unmute the default microphone using a customizable hotkey (default: `Ctrl+Alt+M`).
@@ -13,6 +13,7 @@ A lightweight Windows application to toggle microphone mute status with a custom
 - **Start Minimized**: Launches directly to the system tray, with the GUI hidden until requested.
 - **Start with Windows**: Option to add the application to Windows startup for automatic launching, with proper handling of spaces in file paths (PyQt6).
 - **Auto-Refresh**: Configurable auto-refresh for audio device reinitialization (default: 5 seconds, 1-60 seconds range).
+- **Single-Instance Enforcement**: Automatically terminates other running instances of the application on startup to prevent hotkey or system tray conflicts (PyQt6 only).
 - **Cross-Resolution Support**: Overlay dynamically centers based on screen resolution (e.g., `x=936` for 1920x1080).
 - **Configuration Persistence**: Saves settings (overlay, sound, hotkey, startup, auto-refresh) to `~/.mic_mute_app/config.json` for both script and executable, ensuring persistence across restarts.
 - **PyQt6 Enhancements** (in `mic_state_controller_pyqt.py`):
@@ -27,7 +28,18 @@ A lightweight Windows application to toggle microphone mute status with a custom
 - Python 3.11+ (for development; not needed for the `.exe`).
 - `libcairo-2.dll` (included in the `resource` folder of the repository).
 
-## Installation (Development)
+## Installation
+You can either **download a pre-built executable** from the GitHub releases page or **build the executable yourself** using the provided scripts.
+
+### Option 1: Download Pre-Built Executable
+1. Visit the [GitHub Releases page](https://github.com/nabilhasan01/mic-mute-control/releases) for the latest version.
+2. Download `MicCTRL.exe` (PyQt6) or `Microphone Mute Control Tkinter.exe` (Tkinter) from the latest release.
+3. Place the executable in a desired directory (e.g., `C:\Program Files\MicMuteApp`).
+4. Run the executable as administrator to ensure hotkey and audio control functionality:
+   - Right-click the `.exe` file and select "Run as administrator".
+5. The application starts minimized to the system tray if configured, with settings saved to `~/.mic_mute_app/config.json`.
+
+### Option 2: Build from Source
 1. Clone the repository:
    ```bash
    git clone https://github.com/nabilhasan01/mic-mute-control.git
@@ -43,9 +55,7 @@ A lightweight Windows application to toggle microphone mute status with a custom
      pip install pycaw comtypes psutil pywin32 keyboard pystray Pillow pyinstaller cairosvg cairocffi pygame PyQt6
      ```
 3. Verify that `libcairo-2.dll` is present in the `resource` folder (included in the repository).
-
-## Usage
-1. Run the desired script (preferably as administrator for hotkey support):
+4. Run the desired script (preferably as administrator for hotkey support):
    - For Tkinter:
      ```bash
      python mic_state_controller_tkinter.py
@@ -54,6 +64,12 @@ A lightweight Windows application to toggle microphone mute status with a custom
      ```bash
      python mic_state_controller_pyqt.py
      ```
+5. To build a standalone executable, follow the instructions in the "Building the Executable" section below.
+
+## Usage
+1. **Launch the Application**:
+   - If using the pre-built executable, run `MicCTRL.exe` or `Microphone Mute Control Tkinter.exe` as administrator.
+   - If using source code, run the appropriate script (see Installation: Option 2).
    - The app starts minimized to the system tray if configured.
 2. **Toggle Mute**:
    - Press `Ctrl+Alt+M` (default hotkey).
@@ -77,6 +93,8 @@ A lightweight Windows application to toggle microphone mute status with a custom
    - Enable "Start with Windows" to add the app to Windows startup (PyQt6 version properly handles paths with spaces).
 8. **Exit**:
    - Right-click tray icon, select "Exit".
+9. **Single-Instance Behavior** (PyQt6 only):
+   - If another instance of `MicCTRL.exe` is running, the new instance will terminate it to ensure only one instance runs, preventing hotkey or system tray conflicts.
 
 ## Building the Executable
 To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_unmute.wav`), `config.json`, and administrator privileges:
@@ -137,6 +155,7 @@ If you prefer to build manually, use the appropriate command:
     --hidden-import=pycaw.constants ^
     --hidden-import=PyQt6.QtSvg ^
     --hidden-import=pygame ^
+    --hidden-import=psutil ^
     --add-binary "resource\libcairo-2.dll;resource" ^
     --add-data "resource\_mute.wav;resource" ^
     --add-data "resource\_unmute.wav;resource" ^
@@ -152,6 +171,8 @@ If you prefer to build manually, use the appropriate command:
 - Ensure `resource\icon.ico` exists for proper UAC elevation.
 
 ## Troubleshooting
+- **Multiple Instances Running (PyQt6)**:
+  - The PyQt6 version (`MicCTRL.exe`) automatically terminates other instances on startup to prevent conflicts. If issues persist, ensure the executable is run as administrator and check for processes named `MicCTRL.exe` in Task Manager.
 - **`.exe` Fails**:
   - Run as administrator to ensure hotkey and audio control functionality.
   - Ensure the microphone is the default recording device (Windows Sound settings).
