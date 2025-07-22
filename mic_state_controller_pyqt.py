@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QMenu, QFileDialog, QMessageBox, QCheckBox)
 from PyQt6.QtGui import QIcon, QPainter, QImage, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
+import psutil
 
 class HotkeyWorker(QObject):
     hotkey_captured = pyqtSignal(str)
@@ -68,9 +69,30 @@ class OverlayWidget(QWidget):
 
 class MicMuteApp(QMainWindow):
     trigger_toggle_mute = pyqtSignal()
-
+    def check_and_terminate_other_instances(self):
+        """Check for other running instances of the application and terminate them."""
+        instance_mutex = QMutex()
+        with QMutexLocker(instance_mutex):
+            try:
+                current_pid = os.getpid()
+                process_name = "MicCTRL.exe" if hasattr(sys, '_MEIPASS') else os.path.basename(__file__)
+                for proc in psutil.process_iter(['pid', 'name']):
+                    try:
+                        if proc.name() == process_name and proc.pid != current_pid:
+                            proc.terminate()
+                            proc.wait(timeout=3)  # Wait up to 3 seconds for termination
+                            print(f"[INFO] Terminated existing instance with PID {proc.pid}")
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired) as e:
+                        print(f"[WARNING] Failed to terminate process {proc.pid}: {str(e)}")
+            except Exception as e:
+                print(f"[ERROR] Error checking/terminating other instances: {str(e)}")
+                QMessageBox.warning(self, "Warning", f"Error checking for other instances: {str(e)}")
+    
     def __init__(self):
         super().__init__()
+
+        self.check_and_terminate_other_instances()
+
         icon_path = self.get_resource_path(os.path.join("resource", "icon.ico"))
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
