@@ -1,3 +1,4 @@
+```bat
 @echo off
 net session >nul 2>&1
 if %ERRORLEVEL% neq 0 (
@@ -66,6 +67,7 @@ if "%BUILD_TYPE%"=="tkinter" (
       --hidden-import=pycaw.constants ^
       --hidden-import=PyQt6.QtSvg ^
       --hidden-import=pygame ^
+      --hidden-import=psutil ^
       --add-binary "resource\libcairo-2.dll;resource" ^
       --add-data "resource\_mute.wav;resource" ^
       --add-data "resource\_unmute.wav;resource" ^
@@ -96,3 +98,4 @@ if exist "%EXE_NAME%.spec" (
 
 echo Build completed successfully. Executable: dist\%EXE_NAME%.exe
 pause
+```
