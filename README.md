@@ -16,12 +16,6 @@ A lightweight Windows application to toggle microphone mute status with a custom
 - **Single-Instance Enforcement**: Automatically terminates other running instances of the application on startup to prevent hotkey or system tray conflicts (PyQt6 only).
 - **Cross-Resolution Support**: Overlay dynamically centers based on screen resolution (e.g., `x=936` for 1920x1080).
 - **Configuration Persistence**: Saves settings (overlay, sound, hotkey, startup, auto-refresh) to `~/.mic_mute_app/config.json` for both script and executable, ensuring persistence across restarts.
-- **PyQt6 Enhancements** (in `mic_state_controller_pyqt.py`):
-  - Threaded hotkey capture for non-blocking GUI.
-  - Debounced toggle mechanism to prevent rapid successive toggles (100ms debounce interval).
-  - Mutex-based synchronization for safe audio operations.
-  - Retry logic for audio device initialization and mute toggling (up to 3 attempts).
-  - Proper handling of paths with spaces in Windows startup registry entries.
 
 ## Requirements
 - Windows 10/11 (64-bit).
@@ -112,10 +106,7 @@ To create a standalone `.exe` with bundled default sound files (`_mute.wav`, `_u
    - The script creates a manifest file to ensure the executable requests administrator privileges and runs `PyInstaller` with the necessary parameters.
    - The script includes all required dependencies and resources (`libcairo-2.dll`, `_mute.wav`, `_unmute.wav`, `config.json`, `mute_icon.ico`, `icon.ico`).
    - Settings are saved to `~/.mic_mute_app/config.json` to persist across restarts.
-   - If `comtypes.gen` is needed (check for `pycaw` errors), modify the batch script to include:
-     ```bash
-     --add-data "C:\Users\YourUsername\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\comtypes\gen;comtypes\gen"
-     ```
+
 3. Find `Microphone Mute Control Tkinter.exe` or `MicCTRL.exe` in the `dist` folder.
 4. Share the `.exe` (run as administrator on other PCs).
 
