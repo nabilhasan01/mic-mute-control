@@ -548,6 +548,7 @@ class MicMuteApp(QMainWindow):
         self.tray_icon = QSystemTrayIcon(self.unmuted_tray_icon, self)
         menu = QMenu()
         menu.addAction("Toggle Mute", self.queue_toggle)
+        menu.addAction("Refresh Device", lambda: self.refresh_device(manual=True))
         menu.addAction("Show Window", self.show)
         menu.addAction("Exit", self.exit_app)
         self.tray_icon.setContextMenu(menu)
